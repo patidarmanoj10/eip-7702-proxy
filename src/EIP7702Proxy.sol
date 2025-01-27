@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {Proxy} from "openzeppelin-contracts/contracts/proxy/Proxy.sol";
-import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol";
-import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
+import {Proxy} from "@openzeppelin/contracts/proxy/Proxy.sol";
+import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 /// @notice Proxy contract designed for EIP-7702 smart accounts.
 ///
@@ -25,7 +25,10 @@ contract EIP7702Proxy is Proxy {
         guardedInitializer = initializer;
     }
 
-    function initialize(bytes calldata args, bytes calldata signature) external {
+    function initialize(
+        bytes calldata args,
+        bytes calldata signature
+    ) external {
         // construct hash incompatible with wallet RPCs to avoid phishing
         bytes32 hash = keccak256(abi.encode(proxy, args));
         address recovered = ECDSA.recover(hash, signature);
@@ -33,14 +36,21 @@ contract EIP7702Proxy is Proxy {
 
         // enforce initialization only on initial implementation
         address implementation = _implementation();
-        if (implementation != initialImplementation) revert InvalidImplementation();
+        if (implementation != initialImplementation)
+            revert InvalidImplementation();
 
-        Address.functionDelegateCall(initialImplementation, abi.encodePacked(guardedInitializer, args));
+        Address.functionDelegateCall(
+            initialImplementation,
+            abi.encodePacked(guardedInitializer, args)
+        );
     }
 
     function _implementation() internal view override returns (address) {
         address implementation = ERC1967Utils.getImplementation();
-        return implementation != address(0) ? implementation : initialImplementation;
+        return
+            implementation != address(0)
+                ? implementation
+                : initialImplementation;
     }
 
     function _fallback() internal override {
