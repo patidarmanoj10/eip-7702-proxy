@@ -6,18 +6,20 @@ import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 
-/// @notice Proxy contract designed for EIP-7702 smart accounts.
-///
-/// @dev Implements ERC-1967, but with an initial implementation.
-/// @dev Guards the initializer function, requiring a signed payload by the wallet to call it.
+/// @title EIP7702Proxy
+/// @notice Proxy contract designed for EIP-7702 smart accounts
+/// @dev Implements ERC-1967 with an initial implementation and guarded initialization
 contract EIP7702Proxy is Proxy {
     // ERC1271 interface constants
     bytes4 internal constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
     bytes4 internal constant ERC1271_ISVALIDSIGNATURE_SELECTOR = 0x1626ba7e;
     bytes4 internal constant ERC1271_FAIL_VALUE = 0xffffffff;
 
+    /// @notice Address of this proxy contract (stored as immutable)
     address immutable proxy;
+    /// @notice Initial implementation address set during construction
     address immutable initialImplementation;
+    /// @notice Function selector on the implementation that is guarded from direct calls
     bytes4 immutable guardedInitializer;
 
     event Upgraded(address indexed implementation);
@@ -32,6 +34,10 @@ contract EIP7702Proxy is Proxy {
         guardedInitializer = initializer;
     }
 
+    /// @notice Initializes the proxy and implementation with a signed payload
+    /// @param args The initialization arguments for the implementation
+    /// @param signature The signature authorizing initialization
+    /// @dev Signature must be from this contract's address
     function initialize(
         bytes calldata args,
         bytes calldata signature
@@ -55,6 +61,7 @@ contract EIP7702Proxy is Proxy {
         );
     }
 
+    /// @inheritdoc Proxy
     function _implementation() internal view override returns (address) {
         address implementation = ERC1967Utils.getImplementation();
         return
@@ -63,6 +70,9 @@ contract EIP7702Proxy is Proxy {
                 : initialImplementation;
     }
 
+    /// @inheritdoc Proxy
+    /// @dev Handles ERC-1271 signature validation by enforcing an ecrecover check if signatures fail `isValidSignature` check
+    /// @dev Guards a specified initializer function from being called directly
     function _fallback() internal override {
         // block guarded initializer from being called
         if (msg.sig == guardedInitializer) revert InvalidInitializer();
