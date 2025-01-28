@@ -90,12 +90,14 @@ contract EIP7702Proxy is Proxy {
                 }
             }
 
-            // Otherwise try ecrecover
-            address recovered = ECDSA.recover(hash, signature);
-            if (recovered == address(this)) {
-                assembly {
-                    mstore(0, ERC1271_MAGIC_VALUE)
-                    return(0, 32)
+            // Only try ECDSA if signature is the right length (65 bytes)
+            if (signature.length == 65) {
+                address recovered = ECDSA.recover(hash, signature);
+                if (recovered == address(this)) {
+                    assembly {
+                        mstore(0, ERC1271_MAGIC_VALUE)
+                        return(0, 32)
+                    }
                 }
             }
 

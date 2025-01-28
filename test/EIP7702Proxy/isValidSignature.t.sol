@@ -102,7 +102,11 @@ contract IsValidSignatureTest is EIP7702ProxyBase {
     function testEmptySignature() public {
         bytes memory emptySignature = "";
 
-        vm.expectRevert();
         bytes4 result = wallet.isValidSignature(testHash, emptySignature);
+        assertEq(
+            result,
+            ERC1271_FAIL_VALUE,
+            "Should reject empty signature"
+        );
     }
 }
