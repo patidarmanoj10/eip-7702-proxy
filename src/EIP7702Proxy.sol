@@ -11,6 +11,11 @@ import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 /// @dev Implements ERC-1967, but with an initial implementation.
 /// @dev Guards the initializer function, requiring a signed payload by the wallet to call it.
 contract EIP7702Proxy is Proxy {
+    // ERC1271 interface constants
+    bytes4 internal constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
+    bytes4 internal constant ERC1271_ISVALIDSIGNATURE_SELECTOR = 0x1626ba7e;
+    bytes4 internal constant ERC1271_FAIL_VALUE = 0xffffffff;
+
     address immutable proxy;
     address immutable initialImplementation;
     bytes4 immutable guardedInitializer;
@@ -61,6 +66,46 @@ contract EIP7702Proxy is Proxy {
     function _fallback() internal override {
         // block guarded initializer from being called
         if (msg.sig == guardedInitializer) revert InvalidInitializer();
+
+        // Special handling for isValidSignature
+        if (msg.sig == ERC1271_ISVALIDSIGNATURE_SELECTOR) {
+            (bytes32 hash, bytes memory signature) = abi.decode(
+                msg.data[4:],
+                (bytes32, bytes)
+            );
+
+            // First try delegatecall to implementation
+            (bool success, bytes memory result) = _implementation()
+                .delegatecall(msg.data);
+
+            // If delegatecall succeeded and returned magic value, return that
+            if (
+                success &&
+                result.length == 32 &&
+                abi.decode(result, (bytes4)) == ERC1271_MAGIC_VALUE
+            ) {
+                assembly {
+                    mstore(0, ERC1271_MAGIC_VALUE)
+                    return(0, 32)
+                }
+            }
+
+            // Otherwise try ecrecover
+            address recovered = ECDSA.recover(hash, signature);
+            if (recovered == address(this)) {
+                assembly {
+                    mstore(0, ERC1271_MAGIC_VALUE)
+                    return(0, 32)
+                }
+            }
+
+            // If all checks fail, return failure value
+            assembly {
+                mstore(0, ERC1271_FAIL_VALUE)
+                return(0, 32)
+            }
+        }
+
         _delegate(_implementation());
     }
 }
