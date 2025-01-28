@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {Proxy} from "@openzeppelin/contracts/proxy/Proxy.sol";
-import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {Proxy} from "openzeppelin-contracts/contracts/proxy/Proxy.sol";
+import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol";
+import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 
 /// @notice Proxy contract designed for EIP-7702 smart accounts.
 ///
@@ -19,6 +19,8 @@ contract EIP7702Proxy is Proxy {
     address immutable proxy;
     address immutable initialImplementation;
     bytes4 immutable guardedInitializer;
+
+    event Upgraded(address indexed implementation);
 
     error InvalidSignature();
     error InvalidInitializer();
@@ -43,6 +45,9 @@ contract EIP7702Proxy is Proxy {
         address implementation = _implementation();
         if (implementation != initialImplementation)
             revert InvalidImplementation();
+
+        // Set the ERC-1967 implementation slot and emit Upgraded event
+        ERC1967Utils.upgradeToAndCall(initialImplementation, "");
 
         Address.functionDelegateCall(
             initialImplementation,
@@ -85,12 +90,14 @@ contract EIP7702Proxy is Proxy {
                 }
             }
 
-            // Otherwise try ecrecover
-            address recovered = ECDSA.recover(hash, signature);
-            if (recovered == address(this)) {
-                assembly {
-                    mstore(0, ERC1271_MAGIC_VALUE)
-                    return(0, 32)
+            // Only try ECDSA if signature is the right length (65 bytes)
+            if (signature.length == 65) {
+                address recovered = ECDSA.recover(hash, signature);
+                if (recovered == address(this)) {
+                    assembly {
+                        mstore(0, ERC1271_MAGIC_VALUE)
+                        return(0, 32)
+                    }
                 }
             }
 

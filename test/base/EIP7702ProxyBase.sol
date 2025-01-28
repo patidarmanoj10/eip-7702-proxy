@@ -12,6 +12,10 @@ import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.s
  *      This contract should not contain any actual tests.
  */
 abstract contract EIP7702ProxyBase is Test {
+    // Add ERC1967 implementation slot constant
+    bytes32 internal constant IMPLEMENTATION_SLOT = 
+        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+
     // Test accounts
     uint256 internal constant _EOA_PRIVATE_KEY = 0xA11CE;
     address payable internal _eoa;
@@ -75,6 +79,15 @@ abstract contract EIP7702ProxyBase is Test {
         bytes[] memory owners = new bytes[](1);
         owners[0] = abi.encode(owner);
         return abi.encode(owners);
+    }
+
+    /**
+     * @dev Helper to read the implementation address from ERC1967 storage slot
+     * @param proxy Address of the proxy contract to read from
+     * @return The implementation address stored in the ERC1967 slot
+     */
+    function _getERC1967Implementation(address proxy) internal view returns (address) {
+        return address(uint160(uint256(vm.load(proxy, IMPLEMENTATION_SLOT))));
     }
 
     function _sign(
