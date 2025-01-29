@@ -61,23 +61,17 @@ contract EIP7702Proxy is Proxy {
         );
     }
 
-    /// @inheritdoc Proxy
-    function _implementation() internal view override returns (address) {
-        address implementation = ERC1967Utils.getImplementation();
-        return
-            implementation != address(0)
-                ? implementation
-                : initialImplementation;
-    }
-
-    /// @inheritdoc Proxy
-    /// @dev Handles ERC-1271 signature validation by enforcing an ecrecover check if signatures fail `isValidSignature` check
-    /// @dev Guards a specified initializer function from being called directly
-    function _fallback() internal override {
-        // block guarded initializer from being called
-        if (msg.sig == guardedInitializer) revert InvalidInitializer();
-
-        // Special handling for isValidSignature
+    /**
+     * @notice Handles ERC-1271 signature validation by enforcing a final ecrecover check if signatures fail `isValidSignature` check
+     * @dev This ensures EOA signatures are considered valid regardless of the implementation's `isValidSignature` implementation
+     * @param hash The hash of the message being signed
+     * @param signature The signature of the message
+     * @return The result of the `isValidSignature` check
+     */
+    function isValidSignature(
+        bytes32 hash,
+        bytes calldata signature
+    ) external returns (bytes4) {
         if (msg.sig == ERC1271_ISVALIDSIGNATURE_SELECTOR) {
             (bytes32 hash, bytes memory signature) = abi.decode(
                 msg.data[4:],
@@ -117,6 +111,23 @@ contract EIP7702Proxy is Proxy {
                 return(0, 32)
             }
         }
+    }
+
+    /// @inheritdoc Proxy
+    function _implementation() internal view override returns (address) {
+        address implementation = ERC1967Utils.getImplementation();
+        return
+            implementation != address(0)
+                ? implementation
+                : initialImplementation;
+    }
+
+    /// @inheritdoc Proxy
+    /// @dev Handles ERC-1271 signature validation by enforcing an ecrecover check if signatures fail `isValidSignature` check
+    /// @dev Guards a specified initializer function from being called directly
+    function _fallback() internal override {
+        // block guarded initializer from being called
+        if (msg.sig == guardedInitializer) revert InvalidInitializer();
 
         _delegate(_implementation());
     }
