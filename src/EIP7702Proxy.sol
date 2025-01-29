@@ -72,44 +72,38 @@ contract EIP7702Proxy is Proxy {
         bytes32 hash,
         bytes calldata signature
     ) external returns (bytes4) {
-        if (msg.sig == ERC1271_ISVALIDSIGNATURE_SELECTOR) {
-            (bytes32 hash, bytes memory signature) = abi.decode(
-                msg.data[4:],
-                (bytes32, bytes)
-            );
+        // First try delegatecall to implementation
+        (bool success, bytes memory result) = _implementation().delegatecall(
+            msg.data
+        );
 
-            // First try delegatecall to implementation
-            (bool success, bytes memory result) = _implementation()
-                .delegatecall(msg.data);
+        // If delegatecall succeeded and returned magic value, return that
+        if (
+            success &&
+            result.length == 32 &&
+            abi.decode(result, (bytes4)) == ERC1271_MAGIC_VALUE
+        ) {
+            assembly {
+                mstore(0, ERC1271_MAGIC_VALUE)
+                return(0, 32)
+            }
+        }
 
-            // If delegatecall succeeded and returned magic value, return that
-            if (
-                success &&
-                result.length == 32 &&
-                abi.decode(result, (bytes4)) == ERC1271_MAGIC_VALUE
-            ) {
+        // Only try ECDSA if signature is the right length (65 bytes)
+        if (signature.length == 65) {
+            address recovered = ECDSA.recover(hash, signature);
+            if (recovered == address(this)) {
                 assembly {
                     mstore(0, ERC1271_MAGIC_VALUE)
                     return(0, 32)
                 }
             }
+        }
 
-            // Only try ECDSA if signature is the right length (65 bytes)
-            if (signature.length == 65) {
-                address recovered = ECDSA.recover(hash, signature);
-                if (recovered == address(this)) {
-                    assembly {
-                        mstore(0, ERC1271_MAGIC_VALUE)
-                        return(0, 32)
-                    }
-                }
-            }
-
-            // If all checks fail, return failure value
-            assembly {
-                mstore(0, ERC1271_FAIL_VALUE)
-                return(0, 32)
-            }
+        // If all checks fail, return failure value
+        assembly {
+            mstore(0, ERC1271_FAIL_VALUE)
+            return(0, 32)
         }
     }
 
