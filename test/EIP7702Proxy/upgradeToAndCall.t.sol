@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
 import {CoinbaseSmartWallet} from "../../lib/smart-wallet/src/CoinbaseSmartWallet.sol";
-import {UUPSUpgradeable} from "solady/src/utils/UUPSUpgradeable.sol";
+import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 
 contract UpgradeToAndCallTest is EIP7702ProxyBase {
     DummyImplementation newImplementation;
@@ -22,9 +22,24 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
         newImplementation = new DummyImplementation();
     }
 
-    function testUpgradeToAndCall() public {
-        // Only owner should be able to upgrade
+    function testUpgradeToAndCall_succeedsForOwner() public {
+        // Wallet owner should be able to upgrade
         vm.prank(_newOwner);
+
+        CoinbaseSmartWallet(payable(_eoa)).upgradeToAndCall(
+            address(newImplementation),
+            abi.encodeWithSignature("dummy()")
+        );
+
+        // Verify upgrade worked by calling new function
+        vm.expectEmit(true, true, true, true, _eoa);
+        emit DummyImplementation.DummyCalled();
+        DummyImplementation(payable(_eoa)).dummy();
+    }
+
+    function testUpgradeToAndCall_succeedsForEOA() public {
+        // EOA should be able to upgrade
+        vm.prank(_eoa);
 
         CoinbaseSmartWallet(payable(_eoa)).upgradeToAndCall(
             address(newImplementation),
