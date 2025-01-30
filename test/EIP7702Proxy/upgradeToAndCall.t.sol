@@ -15,7 +15,6 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
         // Initialize the proxy first
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        vm.prank(_eoa);
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
 
         // Deploy new implementation
@@ -52,7 +51,7 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
         DummyImplementation(payable(_eoa)).dummy();
     }
 
-    function testUpgradeToAndCallRevertsForNonOwner() public {
+    function testUpgradeToAndCall_revertsForNonOwner() public {
         vm.prank(address(0xBAD));
         vm.expectRevert(); // CoinbaseSmartWallet will revert for non-owner
         CoinbaseSmartWallet(payable(_eoa)).upgradeToAndCall(
