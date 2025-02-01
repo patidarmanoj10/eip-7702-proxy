@@ -33,8 +33,8 @@ contract EIP7702Proxy is Proxy {
     /// @notice Emitted when the `guardedInitializer` is called
     error InvalidInitializer();
 
-    /// @notice Emitted when initialization is attempted on a non-initial implementation
-    error InvalidImplementation();
+    /// @notice Emitted when trying to delegate before initialization
+    error ProxyNotInitialized();
 
     /// @notice Emitted when constructor arguments are zero
     error ZeroValueConstructorArguments();
@@ -52,6 +52,11 @@ contract EIP7702Proxy is Proxy {
         guardedInitializer = initializer;
     }
 
+    /// @dev Checks if proxy has been initialized by comparing implementation slot
+    function _isInitialized() internal view returns (bool) {
+        return _implementation() == initialImplementation;
+    }
+
     /// @notice Initializes the proxy and implementation with a signed payload
     ///
     /// @dev Signature must be from this contract's address
@@ -66,11 +71,6 @@ contract EIP7702Proxy is Proxy {
         bytes32 hash = keccak256(abi.encode(proxy, args));
         address recovered = ECDSA.recover(hash, signature);
         if (recovered != address(this)) revert InvalidSignature();
-
-        // enforce initialization only on initial implementation
-        address implementation = _implementation();
-        if (implementation != initialImplementation)
-            revert InvalidImplementation();
 
         // Set the ERC-1967 implementation slot, emit Upgraded event, call the initializer on the initial implementation
         ERC1967Utils.upgradeToAndCall(
@@ -118,21 +118,18 @@ contract EIP7702Proxy is Proxy {
     }
 
     /// @inheritdoc Proxy
-    function _implementation() internal view override returns (address) {
-        address implementation = ERC1967Utils.getImplementation();
-        return
-            implementation != address(0)
-                ? implementation
-                : initialImplementation;
-    }
-
-    /// @inheritdoc Proxy
     /// @dev Handles ERC-1271 signature validation by enforcing an ecrecover check if signatures fail `isValidSignature` check
     /// @dev Guards a specified initializer function from being called directly
     function _fallback() internal override {
+        if (!_isInitialized()) revert ProxyNotInitialized();
+
         // block guarded initializer from being called
         if (msg.sig == guardedInitializer) revert InvalidInitializer();
 
         _delegate(_implementation());
+    }
+
+    function _implementation() internal view override returns (address) {
+        return ERC1967Utils.getImplementation();
     }
 }

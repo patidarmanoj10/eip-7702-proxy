@@ -68,4 +68,29 @@ contract DelegateTest is EIP7702ProxyBase {
             "State should not change when write fails"
         );
     }
+
+    function test_reverts_whenCallingBeforeInitialization() public {
+        // Deploy a fresh proxy without initializing it
+        address payable uninitProxy = payable(makeAddr("uninitProxy"));
+        _deployProxy(uninitProxy);
+
+        vm.expectRevert(EIP7702Proxy.ProxyNotInitialized.selector);
+        MockImplementation(payable(uninitProxy)).owner();
+    }
+
+    function test_reverts_whenCallingWithArbitraryDataBeforeInitialization(
+        bytes memory arbitraryCalldata
+    ) public {
+        // Deploy a fresh proxy without initializing it
+        address payable uninitProxy = payable(makeAddr("uninitProxy"));
+        _deployProxy(uninitProxy);
+
+        // Test that it reverts with the correct error
+        vm.expectRevert(EIP7702Proxy.ProxyNotInitialized.selector);
+        address(uninitProxy).call(arbitraryCalldata);
+
+        // Also verify the low-level call fails
+        (bool success, ) = address(uninitProxy).call(arbitraryCalldata);
+        assertFalse(success, "Low-level call should fail");
+    }
 }
