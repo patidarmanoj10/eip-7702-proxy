@@ -127,14 +127,14 @@ contract CoinbaseImplementationTest is Test {
     }
 
     // ======== Tests ========
-    function testCoinbaseInitializeSetsOwner() public {
+    function test_initialize_setsOwner() public {
         assertTrue(
             wallet.isOwnerAddress(_newOwner),
             "New owner should be owner after initialization"
         );
     }
 
-    function testCoinbaseOwnerSignatureValidation() public {
+    function test_isValidSignature_succeeds_withValidOwnerSignature() public {
         bytes32 testHash = keccak256("test message");
         assertTrue(
             wallet.isOwnerAddress(_newOwner),
@@ -161,7 +161,7 @@ contract CoinbaseImplementationTest is Test {
         );
     }
 
-    function testCoinbaseExecuteFunction() public {
+    function test_execute_transfersEth_whenCalledByOwner() public {
         address recipient = address(0xBEEF);
         uint256 amount = 1 ether;
 
@@ -181,7 +181,7 @@ contract CoinbaseImplementationTest is Test {
         );
     }
 
-    function testCoinbaseUpgradeAccess() public {
+    function test_upgradeToAndCall_reverts_whenCalledByNonOwner() public {
         address newImpl = address(new CoinbaseSmartWallet());
 
         vm.prank(address(0xBAD));
@@ -189,7 +189,7 @@ contract CoinbaseImplementationTest is Test {
         wallet.upgradeToAndCall(newImpl, "");
     }
 
-    function testCanOnlyBeCalledOnce() public {
+    function test_initialize_reverts_whenCalledTwice() public {
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
 

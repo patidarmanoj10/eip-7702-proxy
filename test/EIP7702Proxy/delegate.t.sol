@@ -15,7 +15,7 @@ contract DelegateTest is EIP7702ProxyBase {
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
     }
 
-    function testBlocksGuardedInitializer() public {
+    function test_guardedInitializer_reverts_whenCalledDirectly() public {
         bytes memory initData = abi.encodeWithSelector(
             MockImplementation.initialize.selector,
             _newOwner
@@ -25,7 +25,7 @@ contract DelegateTest is EIP7702ProxyBase {
         address(_eoa).call(initData);
     }
 
-    function testDelegatesReadCall() public {
+    function test_succeeds_whenReadingState() public {
         assertEq(
             MockImplementation(payable(_eoa)).owner(),
             _newOwner,
@@ -33,22 +33,16 @@ contract DelegateTest is EIP7702ProxyBase {
         );
     }
 
-    function testDelegatesWriteCall() public {
+    function test_succeeds_whenWritingState() public {
         vm.prank(_newOwner);
         MockImplementation(payable(_eoa)).mockFunction();
-        // Success is just completing the call without revert
     }
 
-    /**
-     * Tests that complex return data (non-binary) is correctly delegated
-     */
-    function testDelegatesComplexReturnData() public {
+    function test_preservesReturnData_whenReturningBytes() public {
         bytes memory testData = hex"deadbeef";
-        // Call returnBytesData with test data
         bytes memory returnedData = MockImplementation(payable(_eoa))
             .returnBytesData(testData);
 
-        // Verify the complex return data matches expected format
         assertEq(
             returnedData,
             testData,
@@ -56,24 +50,16 @@ contract DelegateTest is EIP7702ProxyBase {
         );
     }
 
-    /**
-     * Tests that delegate call fails if read operation fails
-     */
-    function testDelegateFailsOnReadFailure() public {
+    function test_reverts_whenReadReverts() public {
         vm.expectRevert("MockRevert");
         MockImplementation(payable(_eoa)).revertingFunction();
     }
 
-    /**
-     * Tests that delegate call fails if write operation fails
-     */
-    function testDelegateFailsOnWriteFailure() public {
-        // Try to call mockFunction as non-owner
+    function test_reverts_whenWriteReverts() public {
         vm.prank(address(0xBAD));
         vm.expectRevert(MockImplementation.Unauthorized.selector);
         MockImplementation(payable(_eoa)).mockFunction();
 
-        // Verify state was not changed
         assertFalse(
             MockImplementation(payable(_eoa)).mockFunctionCalled(),
             "State should not change when write fails"

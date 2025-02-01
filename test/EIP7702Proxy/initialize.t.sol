@@ -7,7 +7,7 @@ import {MockImplementation, RevertingInitializerMockImplementation} from "../moc
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 contract InitializeTest is EIP7702ProxyBase {
-    function testSucceedsWithValidSignature() public {
+    function test_succeeds_withValidSignatureAndArgs() public {
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
 
@@ -21,7 +21,7 @@ contract InitializeTest is EIP7702ProxyBase {
         );
     }
 
-    function testSetsERC1967ImplementationSlot() public {
+    function test_setsERC1967ImplementationSlot() public {
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
 
@@ -35,7 +35,7 @@ contract InitializeTest is EIP7702ProxyBase {
         );
     }
 
-    function testEmitsUpgradedEvent() public {
+    function test_emitsUpgradedEvent() public {
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
 
@@ -44,7 +44,7 @@ contract InitializeTest is EIP7702ProxyBase {
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
     }
 
-    function testRevertsWithInvalidSignatureLength() public {
+    function test_reverts_whenSignatureLengthInvalid() public {
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = hex"deadbeef"; // Too short to be valid ECDSA signature
 
@@ -54,7 +54,7 @@ contract InitializeTest is EIP7702ProxyBase {
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
     }
 
-    function testRevertsWithInvalidSignature() public {
+    function test_reverts_whenSignatureInvalid() public {
         bytes memory initArgs = _createInitArgs(_newOwner);
         // 65 bytes of invalid signature data
         bytes memory signature = new bytes(65);
@@ -63,7 +63,7 @@ contract InitializeTest is EIP7702ProxyBase {
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
     }
 
-    function testRevertsWithWrongSigner() public {
+    function test_reverts_whenSignerWrong() public {
         uint256 wrongPk = 0xC0FFEE;
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes32 initHash = keccak256(abi.encode(_eoa, initArgs));
@@ -74,7 +74,7 @@ contract InitializeTest is EIP7702ProxyBase {
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
     }
 
-    function testRevertsWhenInitializerDelegatecallFails() public {
+    function test_reverts_whenDelegatecallFails() public {
         // Deploy reverting implementation
         _implementation = new RevertingInitializerMockImplementation();
         _initSelector = RevertingInitializerMockImplementation
@@ -98,7 +98,7 @@ contract InitializeTest is EIP7702ProxyBase {
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
     }
 
-    function testRevertsWhenSignatureReplayedWithDifferentProxy() public {
+    function test_reverts_whenSignatureReplayedWithDifferentProxy() public {
         // Get signature for first proxy
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
@@ -112,7 +112,7 @@ contract InitializeTest is EIP7702ProxyBase {
         EIP7702Proxy(secondProxy).initialize(initArgs, signature);
     }
 
-    function testRevertsWhenSignatureReplayedWithDifferentArgs() public {
+    function test_reverts_whenSignatureReplayedWithDifferentArgs() public {
         // Get signature for first initialization args
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);

@@ -22,7 +22,7 @@ abstract contract IsValidSignatureTestBase is EIP7702ProxyBase {
         wallet = _eoa;
     }
 
-    function testValidEOASignature() public virtual {
+    function test_succeeds_withValidEOASignature() public virtual {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, testHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
@@ -37,7 +37,10 @@ abstract contract IsValidSignatureTestBase is EIP7702ProxyBase {
         );
     }
 
-    function testInvalidEOASignature() public virtual {
+    function test_returnsExpectedValue_withInvalidEOASignature()
+        public
+        virtual
+    {
         uint256 wrongPk = 0xB0B;
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongPk, testHash);
         bytes memory signature = abi.encodePacked(r, s, v);
@@ -98,7 +101,7 @@ contract FailingImplementationTest is IsValidSignatureTestBase {
         return ERC1271_FAIL_VALUE;
     }
 
-    function testEmptySignature() public {
+    function test_returnsFailureValue_withEmptySignature() public {
         bytes memory emptySignature = "";
 
         bytes4 result = MockImplementation(payable(wallet)).isValidSignature(
@@ -143,7 +146,7 @@ contract SucceedingImplementationTest is IsValidSignatureTestBase {
         return ERC1271_MAGIC_VALUE; // Implementation always returns success
     }
 
-    function testEmptySignature() public {
+    function test_returnsSuccessValue_withEmptySignature() public {
         bytes memory emptySignature = "";
 
         bytes4 result = MockImplementation(payable(wallet)).isValidSignature(
