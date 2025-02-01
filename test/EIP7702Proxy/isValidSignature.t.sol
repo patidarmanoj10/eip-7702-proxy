@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
-import {MockImplementation, FailingSignatureImplementation} from "../mocks/MockImplementation.sol";
+import {MockImplementation, FailingSignatureImplementation, RevertingIsValidSignatureImplementation} from "../mocks/MockImplementation.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 /**
@@ -65,7 +65,7 @@ abstract contract IsValidSignatureTestBase is EIP7702ProxyBase {
 }
 
 /**
- * @dev Tests isValidSignature behavior with failing implementation
+ * @dev Tests isValidSignature behavior when returning failure value from implementation isValidSignature
  */
 contract FailingImplementationTest is IsValidSignatureTestBase {
     function setUp() public override {
@@ -110,7 +110,7 @@ contract FailingImplementationTest is IsValidSignatureTestBase {
 }
 
 /**
- * @dev Tests isValidSignature behavior with succeeding implementation
+ * @dev Tests isValidSignature behavior when returning success value from implementation isValidSignature
  */
 contract SucceedingImplementationTest is IsValidSignatureTestBase {
     function setUp() public override {
@@ -155,5 +155,40 @@ contract SucceedingImplementationTest is IsValidSignatureTestBase {
             ERC1271_MAGIC_VALUE,
             "Should return success for any EOA signature if implementation since `isValidSignature` always succeeds"
         );
+    }
+}
+
+/**
+ * @dev Tests isValidSignature behavior when reverting in implementation isValidSignature
+ */
+contract RevertingImplementationTest is IsValidSignatureTestBase {
+    function setUp() public override {
+        // Override base setup to use RevertingIsValidSignatureImplementation
+        _implementation = new RevertingIsValidSignatureImplementation();
+        _initSelector = MockImplementation.initialize.selector;
+
+        _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
+        _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
+
+        // Deploy and setup proxy
+        _proxy = new EIP7702Proxy(address(_implementation), _initSelector);
+        bytes memory proxyCode = address(_proxy).code;
+        vm.etch(_eoa, proxyCode);
+
+        // Initialize
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
+        EIP7702Proxy(_eoa).initialize(initArgs, signature);
+
+        super.setUp();
+    }
+
+    function expectedInvalidSignatureResult()
+        internal
+        pure
+        override
+        returns (bytes4)
+    {
+        return ERC1271_FAIL_VALUE;
     }
 }

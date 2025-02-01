@@ -63,6 +63,24 @@ contract MockImplementation is UUPSUpgradeable {
     function _authorizeUpgrade(
         address
     ) internal view virtual override onlyOwner {}
+
+    /**
+     * @dev Mock function that returns arbitrary bytes data
+     * @param data The data to return
+     * @return The input data (to verify delegation preserves data)
+     */
+    function returnBytesData(
+        bytes memory data
+    ) public pure returns (bytes memory) {
+        return data;
+    }
+
+    /**
+     * @dev Mock function that always reverts
+     */
+    function revertingFunction() public pure {
+        revert("MockRevert");
+    }
 }
 
 /**
@@ -76,5 +94,30 @@ contract FailingSignatureImplementation is MockImplementation {
         bytes calldata
     ) external pure override returns (bytes4) {
         return 0xffffffff;
+    }
+}
+
+/**
+ * @title RevertingIsValidSignatureImplementation
+ * @dev Mock implementation that always reverts during signature validation
+ */
+contract RevertingIsValidSignatureImplementation is MockImplementation {
+    /// @dev Always reverts during signature validation
+    function isValidSignature(
+        bytes32,
+        bytes calldata
+    ) external pure override returns (bytes4) {
+        revert("SignatureValidationFailed");
+    }
+}
+
+/**
+ * @title RevertingInitializerMockImplementation
+ * @dev Mock implementation that always reverts on initialization
+ */
+contract RevertingInitializerMockImplementation is MockImplementation {
+    /// @dev Always reverts on initialization
+    function initialize(address) public pure override {
+        revert("InitializerReverted");
     }
 }

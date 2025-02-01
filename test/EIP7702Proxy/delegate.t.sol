@@ -38,4 +38,45 @@ contract DelegateTest is EIP7702ProxyBase {
         MockImplementation(payable(_eoa)).mockFunction();
         // Success is just completing the call without revert
     }
+
+    /**
+     * Tests that complex return data (non-binary) is correctly delegated
+     */
+    function testDelegatesComplexReturnData() public {
+        bytes memory testData = hex"deadbeef";
+        // Call returnBytesData with test data
+        bytes memory returnedData = MockImplementation(payable(_eoa))
+            .returnBytesData(testData);
+
+        // Verify the complex return data matches expected format
+        assertEq(
+            returnedData,
+            testData,
+            "Complex return data should be correctly delegated"
+        );
+    }
+
+    /**
+     * Tests that delegate call fails if read operation fails
+     */
+    function testDelegateFailsOnReadFailure() public {
+        vm.expectRevert("MockRevert");
+        MockImplementation(payable(_eoa)).revertingFunction();
+    }
+
+    /**
+     * Tests that delegate call fails if write operation fails
+     */
+    function testDelegateFailsOnWriteFailure() public {
+        // Try to call mockFunction as non-owner
+        vm.prank(address(0xBAD));
+        vm.expectRevert(MockImplementation.Unauthorized.selector);
+        MockImplementation(payable(_eoa)).mockFunction();
+
+        // Verify state was not changed
+        assertFalse(
+            MockImplementation(payable(_eoa)).mockFunctionCalled(),
+            "State should not change when write fails"
+        );
+    }
 }

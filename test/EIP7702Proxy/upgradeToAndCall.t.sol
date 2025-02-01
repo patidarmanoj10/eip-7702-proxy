@@ -7,7 +7,7 @@ import {MockImplementation} from "../mocks/MockImplementation.sol";
 
 /**
  * @title UpgradeToAndCallTest
- * @dev Tests upgradeability functionality of EIP7702Proxy
+ * @dev Tests ERC-1967 upgradeability functionality of EIP7702Proxy
  */
 contract UpgradeToAndCallTest is EIP7702ProxyBase {
     MockImplementation newImplementation;
