@@ -147,4 +147,14 @@ contract InitializeTest is EIP7702ProxyBase {
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
         EIP7702Proxy(_eoa).initialize(differentArgs, signature);
     }
+
+    function test_constructor_reverts_whenImplementationZero() public {
+        vm.expectRevert(EIP7702Proxy.ZeroValueConstructorArguments.selector);
+        new EIP7702Proxy(address(0), MockImplementation.initialize.selector);
+    }
+
+    function test_constructor_reverts_whenInitializerZero() public {
+        vm.expectRevert(EIP7702Proxy.ZeroValueConstructorArguments.selector);
+        new EIP7702Proxy(address(_implementation), bytes4(0));
+    }
 }
