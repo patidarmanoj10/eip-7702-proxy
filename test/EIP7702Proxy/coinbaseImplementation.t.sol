@@ -6,6 +6,10 @@ import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
 import {CoinbaseSmartWallet} from "../../lib/smart-wallet/src/CoinbaseSmartWallet.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
+/**
+ * @title CoinbaseImplementationTest
+ * @dev Tests specific to the CoinbaseSmartWallet implementation
+ */
 contract CoinbaseImplementationTest is Test {
     uint256 constant _EOA_PRIVATE_KEY = 0xA11CE;
     address payable _eoa;
@@ -44,6 +48,11 @@ contract CoinbaseImplementationTest is Test {
     }
 
     // ======== Utility Functions ========
+    /**
+     * @dev Creates initialization arguments for CoinbaseSmartWallet
+     * @param owner Address to set as the initial owner
+     * @return Encoded initialization arguments for CoinbaseSmartWallet
+     */
     function _createInitArgs(
         address owner
     ) internal pure returns (bytes memory) {
@@ -52,16 +61,72 @@ contract CoinbaseImplementationTest is Test {
         return abi.encode(owners);
     }
 
+    /**
+     * @dev Signs initialization data for CoinbaseSmartWallet that will be verified by the proxy
+     * @param signerPk Private key of the signer
+     * @param initArgs Initialization arguments to sign
+     * @return Signature bytes
+     */
     function _signInitData(
         uint256 signerPk,
         bytes memory initArgs
     ) internal view returns (bytes memory) {
-        // Use the EOA address in the hash since that's where our proxy lives
         bytes32 initHash = keccak256(abi.encode(proxy, initArgs));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
         return abi.encodePacked(r, s, v);
     }
 
+    /**
+     * @dev Helper to create ECDSA signatures
+     * @param pk Private key to sign with
+     * @param hash Message hash to sign
+     * @return signature Encoded signature bytes
+     */
+    function _sign(
+        uint256 pk,
+        bytes32 hash
+    ) internal pure returns (bytes memory signature) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, hash);
+        return abi.encodePacked(r, s, v);
+    }
+
+    /**
+     * @dev Creates a signature from a wallet owner for CoinbaseSmartWallet validation
+     * @param message Message to sign
+     * @param smartWallet Address of the wallet contract
+     * @param ownerPk Private key of the owner
+     * @param ownerIndex Index of the owner in the wallet's owner list
+     * @return Wrapped signature bytes
+     */
+    function _createOwnerSignature(
+        bytes32 message,
+        address smartWallet,
+        uint256 ownerPk,
+        uint256 ownerIndex
+    ) internal view returns (bytes memory) {
+        bytes32 replaySafeHash = CoinbaseSmartWallet(payable(smartWallet))
+            .replaySafeHash(message);
+        bytes memory signature = _sign(ownerPk, replaySafeHash);
+        return _applySignatureWrapper(ownerIndex, signature);
+    }
+
+    /**
+     * @dev Wraps a signature with owner index for CoinbaseSmartWallet validation
+     * @param ownerIndex Index of the owner in the wallet's owner list
+     * @param signatureData Raw signature bytes to wrap
+     * @return Encoded signature wrapper
+     */
+    function _applySignatureWrapper(
+        uint256 ownerIndex,
+        bytes memory signatureData
+    ) internal pure returns (bytes memory) {
+        return
+            abi.encode(
+                CoinbaseSmartWallet.SignatureWrapper(ownerIndex, signatureData)
+            );
+    }
+
+    // ======== Tests ========
     function testCoinbaseInitializeSetsOwner() public {
         assertTrue(
             wallet.isOwnerAddress(_newOwner),
@@ -131,37 +196,5 @@ contract CoinbaseImplementationTest is Test {
         // Try to initialize again
         vm.expectRevert(CoinbaseSmartWallet.Initialized.selector);
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
-    }
-
-    // ======== Utility Functions ========
-
-    function _sign(
-        uint256 pk,
-        bytes32 hash
-    ) internal pure returns (bytes memory signature) {
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, hash);
-        return abi.encodePacked(r, s, v);
-    }
-
-    function _createOwnerSignature(
-        bytes32 message,
-        address smartWallet,
-        uint256 ownerPk,
-        uint256 ownerIndex
-    ) internal view returns (bytes memory) {
-        bytes32 replaySafeHash = CoinbaseSmartWallet(payable(smartWallet))
-            .replaySafeHash(message);
-        bytes memory signature = _sign(ownerPk, replaySafeHash);
-        return _applySignatureWrapper(ownerIndex, signature);
-    }
-
-    function _applySignatureWrapper(
-        uint256 ownerIndex,
-        bytes memory signatureData
-    ) internal pure returns (bytes memory) {
-        return
-            abi.encode(
-                CoinbaseSmartWallet.SignatureWrapper(ownerIndex, signatureData)
-            );
     }
 }

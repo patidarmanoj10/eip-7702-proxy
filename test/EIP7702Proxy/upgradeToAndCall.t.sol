@@ -3,8 +3,12 @@ pragma solidity ^0.8.23;
 
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
-import {MockImplementation, RevertingMockImplementation} from "../mocks/MockImplementation.sol";
+import {MockImplementation} from "../mocks/MockImplementation.sol";
 
+/**
+ * @title UpgradeToAndCallTest
+ * @dev Tests upgradeability functionality of EIP7702Proxy
+ */
 contract UpgradeToAndCallTest is EIP7702ProxyBase {
     MockImplementation newImplementation;
 
@@ -46,7 +50,7 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
 
     function testUpgradeToAndCall_revertsForNonOwner() public {
         vm.prank(address(0xBAD));
-        vm.expectRevert("Unauthorized"); // From MockImplementation
+        vm.expectRevert(MockImplementation.Unauthorized.selector); // From MockImplementation
         MockImplementation(payable(_eoa)).upgradeToAndCall(
             address(newImplementation),
             ""

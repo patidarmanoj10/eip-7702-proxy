@@ -3,25 +3,50 @@ pragma solidity ^0.8.23;
 
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 
+/**
+ * @title MockImplementation
+ * @dev Base mock implementation for testing EIP7702Proxy
+ */
 contract MockImplementation is UUPSUpgradeable {
     bytes4 constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
 
     address public owner;
     bool public initialized;
+    bool public mockFunctionCalled;
 
     event Initialized(address owner);
     event MockFunctionCalled();
 
+    error Unauthorized();
     error AlreadyInitialized();
 
-    function initialize(address _owner) external virtual {
+    /// @dev Modifier to restrict access to owner
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert Unauthorized();
+        _;
+    }
+
+    /// @dev Modifier to prevent multiple initializations
+    modifier initializer() {
         if (initialized) revert AlreadyInitialized();
-        owner = _owner;
         initialized = true;
+        _;
+    }
+
+    /**
+     * @dev Initializes the contract with an owner
+     * @param _owner Address to set as owner
+     */
+    function initialize(address _owner) public virtual initializer {
+        owner = _owner;
         emit Initialized(_owner);
     }
 
-    function mockFunction() external virtual {
+    /**
+     * @dev Mock function for testing delegate calls
+     */
+    function mockFunction() public onlyOwner {
+        mockFunctionCalled = true;
         emit MockFunctionCalled();
     }
 
@@ -32,39 +57,24 @@ contract MockImplementation is UUPSUpgradeable {
         return ERC1271_MAGIC_VALUE;
     }
 
-    function _authorizeUpgrade(address) internal view override {
-        require(msg.sender == owner, "Unauthorized");
-    }
+    /**
+     * @dev Implementation of UUPS upgrade authorization
+     */
+    function _authorizeUpgrade(
+        address
+    ) internal view virtual override onlyOwner {}
 }
 
-contract RevertingMockImplementation is MockImplementation {
-    function isValidSignature(
-        bytes32,
-        bytes calldata
-    ) external pure override returns (bytes4) {
-        revert("Always reverts");
-    }
-}
-
-contract RevertingInitializerMockImplementation is MockImplementation {
-    function initialize(address) external pure override {
-        revert("Initialize always reverts");
-    }
-}
-
-contract RevertingMockFunctionImplementation is MockImplementation {
-    function mockFunction() external pure override {
-        revert("MockFunction always reverts");
-    }
-}
-
+/**
+ * @title FailingSignatureImplementation
+ * @dev Mock implementation that always fails signature validation
+ */
 contract FailingSignatureImplementation is MockImplementation {
-    bytes4 constant ERC1271_FAIL_VALUE = 0xffffffff;
-
+    /// @dev Always returns failure for signature validation
     function isValidSignature(
         bytes32,
         bytes calldata
     ) external pure override returns (bytes4) {
-        return ERC1271_FAIL_VALUE;
+        return 0xffffffff;
     }
 }

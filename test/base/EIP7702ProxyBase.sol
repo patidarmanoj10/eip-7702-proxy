@@ -9,34 +9,31 @@ import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.s
 /**
  * @title EIP7702ProxyBase
  * @dev Base contract containing shared setup and utilities for EIP7702Proxy tests.
- *      This contract should not contain any actual tests.
  */
 abstract contract EIP7702ProxyBase is Test {
-    // Add ERC1967 implementation slot constant
+    /// @dev Storage slot with the address of the current implementation (ERC1967)
     bytes32 internal constant IMPLEMENTATION_SLOT =
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
-    // Test accounts
+    /// @dev Test account private keys and addresses
     uint256 internal constant _EOA_PRIVATE_KEY = 0xA11CE;
     address payable internal _eoa;
 
     uint256 internal constant _NEW_OWNER_PRIVATE_KEY = 0xB0B;
     address payable internal _newOwner;
 
-    // Contracts
+    /// @dev Core contract instances
     EIP7702Proxy internal _proxy;
     MockImplementation internal _implementation;
 
-    // Common test data
+    /// @dev Function selector for initialization
     bytes4 internal _initSelector;
 
     function setUp() public virtual {
         // Set up test accounts
         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
-        vm.deal(_eoa, 100 ether);
 
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
-        vm.deal(_newOwner, 100 ether);
 
         // Deploy implementation
         _implementation = new MockImplementation();
@@ -62,7 +59,6 @@ abstract contract EIP7702ProxyBase is Test {
         uint256 signerPk,
         bytes memory initArgs
     ) internal view returns (bytes memory) {
-        // Use the EOA address in the hash since that's where our proxy lives
         bytes32 initHash = keccak256(abi.encode(_proxy, initArgs));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
         return abi.encodePacked(r, s, v);

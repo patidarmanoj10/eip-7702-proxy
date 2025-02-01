@@ -6,6 +6,10 @@ import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
 import {MockImplementation, FailingSignatureImplementation} from "../mocks/MockImplementation.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
+/**
+ * @title IsValidSignatureTestBase
+ * @dev Base contract for testing ERC-1271 isValidSignature behavior
+ */
 abstract contract IsValidSignatureTestBase is EIP7702ProxyBase {
     bytes4 constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
     bytes4 constant ERC1271_FAIL_VALUE = 0xffffffff;
@@ -45,11 +49,14 @@ abstract contract IsValidSignatureTestBase is EIP7702ProxyBase {
         assertEq(
             result,
             expectedInvalidSignatureResult(),
-            "Should handle invalid EOA signature correctly"
+            "Should handle invalid signature according to whether `isValidSignature` succeeds or fails"
         );
     }
 
-    // Abstract function that each implementation test must define
+    /**
+     * @dev Abstract function that each implementation test must define
+     * @return Expected result for invalid signature tests
+     */
     function expectedInvalidSignatureResult()
         internal
         pure
@@ -57,6 +64,9 @@ abstract contract IsValidSignatureTestBase is EIP7702ProxyBase {
         returns (bytes4);
 }
 
+/**
+ * @dev Tests isValidSignature behavior with failing implementation
+ */
 contract FailingImplementationTest is IsValidSignatureTestBase {
     function setUp() public override {
         // Override base setup to use FailingSignatureImplementation
@@ -99,6 +109,9 @@ contract FailingImplementationTest is IsValidSignatureTestBase {
     }
 }
 
+/**
+ * @dev Tests isValidSignature behavior with succeeding implementation
+ */
 contract SucceedingImplementationTest is IsValidSignatureTestBase {
     function setUp() public override {
         // Override base implementation with standard MockImplementation (always succeeds)
@@ -140,7 +153,7 @@ contract SucceedingImplementationTest is IsValidSignatureTestBase {
         assertEq(
             result,
             ERC1271_MAGIC_VALUE,
-            "Should return success for any EOA signature if implementation `isValidSignature` always succeeds"
+            "Should return success for any EOA signature if implementation since `isValidSignature` always succeeds"
         );
     }
 }
