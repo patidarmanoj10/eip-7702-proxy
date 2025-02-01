@@ -134,11 +134,12 @@ contract CoinbaseImplementationTest is Test {
         );
     }
 
-    function test_isValidSignature_succeeds_withValidOwnerSignature() public {
-        bytes32 testHash = keccak256("test message");
+    function test_isValidSignature_succeeds_withValidOwnerSignature(
+        bytes32 message
+    ) public {
         assertTrue(
             wallet.isOwnerAddress(_newOwner),
-            "New owner should be set after initialization"
+            "New owner should be owner after initialization"
         );
         assertEq(
             wallet.ownerAtIndex(0),
@@ -147,13 +148,13 @@ contract CoinbaseImplementationTest is Test {
         );
 
         bytes memory signature = _createOwnerSignature(
-            testHash,
+            message,
             address(wallet),
             _NEW_OWNER_PRIVATE_KEY,
             0 // First owner
         );
 
-        bytes4 result = wallet.isValidSignature(testHash, signature);
+        bytes4 result = wallet.isValidSignature(message, signature);
         assertEq(
             result,
             ERC1271_MAGIC_VALUE,
@@ -161,9 +162,14 @@ contract CoinbaseImplementationTest is Test {
         );
     }
 
-    function test_execute_transfersEth_whenCalledByOwner() public {
-        address recipient = address(0xBEEF);
-        uint256 amount = 1 ether;
+    function test_execute_transfersEth_whenCalledByOwner(
+        address recipient,
+        uint256 amount
+    ) public {
+        vm.assume(recipient != address(0));
+        assumeNotPrecompile(recipient);
+        assumePayable(recipient);
+        vm.assume(amount > 0 && amount <= 100 ether);
 
         vm.deal(address(_eoa), amount);
 
@@ -181,10 +187,15 @@ contract CoinbaseImplementationTest is Test {
         );
     }
 
-    function test_upgradeToAndCall_reverts_whenCalledByNonOwner() public {
+    function test_upgradeToAndCall_reverts_whenCalledByNonOwner(
+        address nonOwner
+    ) public {
+        vm.assume(nonOwner != address(0));
+        vm.assume(nonOwner != _newOwner); // Ensure caller isn't the actual owner
+
         address newImpl = address(new CoinbaseSmartWallet());
 
-        vm.prank(address(0xBAD));
+        vm.prank(nonOwner);
         vm.expectRevert(); // Coinbase wallet specific access control
         wallet.upgradeToAndCall(newImpl, "");
     }

@@ -7,22 +7,27 @@ import {MockImplementation, RevertingInitializerMockImplementation} from "../moc
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 contract InitializeTest is EIP7702ProxyBase {
-    function test_succeeds_withValidSignatureAndArgs() public {
-        bytes memory initArgs = _createInitArgs(_newOwner);
+    function test_succeeds_withValidSignatureAndArgs(address newOwner) public {
+        vm.assume(newOwner != address(0));
+        assumeNotPrecompile(newOwner);
+
+        bytes memory initArgs = _createInitArgs(newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
 
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
 
-        // Verify implementation was set
-        assertEq(
-            _getERC1967Implementation(address(_eoa)),
-            address(_implementation),
-            "Implementation should be set after initialization"
+        // Verify owner was set correctly
+        assertTrue(
+            MockImplementation(payable(_eoa)).owner() == newOwner,
+            "Owner should be set to fuzzed address"
         );
     }
 
-    function test_setsERC1967ImplementationSlot() public {
-        bytes memory initArgs = _createInitArgs(_newOwner);
+    function test_setsERC1967ImplementationSlot(address newOwner) public {
+        vm.assume(newOwner != address(0));
+        assumeNotPrecompile(newOwner);
+
+        bytes memory initArgs = _createInitArgs(newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
 
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
@@ -44,8 +49,8 @@ contract InitializeTest is EIP7702ProxyBase {
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
     }
 
-    function test_reverts_whenSignatureLengthInvalid() public {
-        bytes memory initArgs = _createInitArgs(_newOwner);
+    function test_reverts_whenSignatureLengthInvalid(address newOwner) public {
+        bytes memory initArgs = _createInitArgs(newOwner);
         bytes memory signature = hex"deadbeef"; // Too short to be valid ECDSA signature
 
         vm.expectRevert(
@@ -54,8 +59,8 @@ contract InitializeTest is EIP7702ProxyBase {
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
     }
 
-    function test_reverts_whenSignatureInvalid() public {
-        bytes memory initArgs = _createInitArgs(_newOwner);
+    function test_reverts_whenSignatureInvalid(address newOwner) public {
+        bytes memory initArgs = _createInitArgs(newOwner);
         // 65 bytes of invalid signature data
         bytes memory signature = new bytes(65);
 
@@ -63,8 +68,10 @@ contract InitializeTest is EIP7702ProxyBase {
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
     }
 
-    function test_reverts_whenSignerWrong() public {
-        uint256 wrongPk = 0xC0FFEE;
+    function test_reverts_whenSignerWrong(uint128 wrongPk) public {
+        vm.assume(wrongPk != 0);
+        vm.assume(wrongPk != _EOA_PRIVATE_KEY); // Not the valid signer
+
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes32 initHash = keccak256(abi.encode(_eoa, initArgs));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongPk, initHash);
@@ -74,7 +81,10 @@ contract InitializeTest is EIP7702ProxyBase {
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
     }
 
-    function test_reverts_whenDelegatecallFails() public {
+    function test_reverts_whenDelegatecallFails(address newOwner) public {
+        vm.assume(newOwner != address(0));
+        assumeNotPrecompile(newOwner);
+
         // Deploy reverting implementation
         _implementation = new RevertingInitializerMockImplementation();
         _initSelector = RevertingInitializerMockImplementation
@@ -91,20 +101,27 @@ contract InitializeTest is EIP7702ProxyBase {
         vm.etch(_eoa, proxyCode);
 
         // Try to initialize with valid signature but reverting implementation
-        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory initArgs = _createInitArgs(newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
 
         vm.expectRevert("InitializerReverted");
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
     }
 
-    function test_reverts_whenSignatureReplayedWithDifferentProxy() public {
+    function test_reverts_whenSignatureReplayedWithDifferentProxy(
+        address payable secondProxy,
+        address newOwner
+    ) public {
+        vm.assume(address(secondProxy) != address(0));
+        vm.assume(address(secondProxy) != address(_eoa));
+        assumeNotPrecompile(address(secondProxy));
+        assumeNotPrecompile(newOwner);
+
         // Get signature for first proxy
-        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory initArgs = _createInitArgs(newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
 
         // Deploy a second proxy with same implementation
-        address payable secondProxy = payable(address(0xBEEF));
         _deployProxy(secondProxy);
 
         // Try to use same signature with different proxy
@@ -112,13 +129,21 @@ contract InitializeTest is EIP7702ProxyBase {
         EIP7702Proxy(secondProxy).initialize(initArgs, signature);
     }
 
-    function test_reverts_whenSignatureReplayedWithDifferentArgs() public {
+    function test_reverts_whenSignatureReplayedWithDifferentArgs(
+        address differentOwner,
+        address newOwner
+    ) public {
+        vm.assume(differentOwner != address(0));
+        vm.assume(differentOwner != newOwner);
+        assumeNotPrecompile(differentOwner);
+        assumeNotPrecompile(newOwner);
+
         // Get signature for first initialization args
-        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory initArgs = _createInitArgs(newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
 
         // Try to use same signature with different args
-        bytes memory differentArgs = _createInitArgs(address(0xBEEF));
+        bytes memory differentArgs = _createInitArgs(differentOwner);
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
         EIP7702Proxy(_eoa).initialize(differentArgs, signature);
     }

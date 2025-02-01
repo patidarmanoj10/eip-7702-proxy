@@ -28,8 +28,9 @@ contract DelegateTest is EIP7702ProxyBase {
         MockImplementation(payable(_eoa)).mockFunction();
     }
 
-    function test_preservesReturnData_whenReturningBytes() public {
-        bytes memory testData = hex"deadbeef";
+    function test_preservesReturnData_whenReturningBytes(
+        bytes memory testData
+    ) public {
         bytes memory returnedData = MockImplementation(payable(_eoa))
             .returnBytesData(testData);
 
@@ -40,11 +41,10 @@ contract DelegateTest is EIP7702ProxyBase {
         );
     }
 
-    function test_guardedInitializer_reverts_whenCalledDirectly() public {
-        bytes memory initData = abi.encodeWithSelector(
-            MockImplementation.initialize.selector,
-            _newOwner
-        );
+    function test_guardedInitializer_reverts_whenCalledDirectly(
+        bytes memory initData
+    ) public {
+        vm.assume(initData.length >= 4); // At least a function selector
 
         vm.expectRevert(EIP7702Proxy.InvalidInitializer.selector);
         address(_eoa).call(initData);
@@ -55,8 +55,11 @@ contract DelegateTest is EIP7702ProxyBase {
         MockImplementation(payable(_eoa)).revertingFunction();
     }
 
-    function test_reverts_whenWriteReverts() public {
-        vm.prank(address(0xBAD));
+    function test_reverts_whenWriteReverts(address unauthorized) public {
+        vm.assume(unauthorized != address(0));
+        vm.assume(unauthorized != _newOwner); // Not the owner
+
+        vm.prank(unauthorized);
         vm.expectRevert(MockImplementation.Unauthorized.selector);
         MockImplementation(payable(_eoa)).mockFunction();
 

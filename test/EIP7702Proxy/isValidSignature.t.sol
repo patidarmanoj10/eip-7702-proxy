@@ -22,12 +22,14 @@ abstract contract IsValidSignatureTestBase is EIP7702ProxyBase {
         wallet = _eoa;
     }
 
-    function test_succeeds_withValidEOASignature() public virtual {
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, testHash);
+    function test_succeeds_withValidEOASignature(
+        bytes32 message
+    ) public virtual {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, message);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         bytes4 result = MockImplementation(payable(wallet)).isValidSignature(
-            testHash,
+            message,
             signature
         );
         assertEq(
@@ -37,16 +39,18 @@ abstract contract IsValidSignatureTestBase is EIP7702ProxyBase {
         );
     }
 
-    function test_returnsExpectedValue_withInvalidEOASignature()
-        public
-        virtual
-    {
-        uint256 wrongPk = 0xB0B;
+    function test_returnsExpectedValue_withInvalidEOASignature(
+        uint128 wrongPk,
+        bytes32 message
+    ) public virtual {
+        vm.assume(wrongPk != 0);
+        vm.assume(wrongPk != _EOA_PRIVATE_KEY);
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongPk, testHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         bytes4 result = MockImplementation(payable(wallet)).isValidSignature(
-            testHash,
+            message,
             signature
         );
         assertEq(
@@ -101,12 +105,12 @@ contract FailingImplementationTest is IsValidSignatureTestBase {
         return ERC1271_FAIL_VALUE;
     }
 
-    function test_returnsFailureValue_withEmptySignature() public {
-        bytes memory emptySignature = "";
-
+    function test_returnsFailureValue_withEmptySignature(
+        bytes32 message
+    ) public {
         bytes4 result = MockImplementation(payable(wallet)).isValidSignature(
-            testHash,
-            emptySignature
+            message,
+            ""
         );
         assertEq(result, ERC1271_FAIL_VALUE, "Should reject empty signature");
     }
@@ -146,17 +150,17 @@ contract SucceedingImplementationTest is IsValidSignatureTestBase {
         return ERC1271_MAGIC_VALUE; // Implementation always returns success
     }
 
-    function test_returnsSuccessValue_withEmptySignature() public {
-        bytes memory emptySignature = "";
-
+    function test_returnsSuccessValue_withEmptySignature(
+        bytes32 message
+    ) public {
         bytes4 result = MockImplementation(payable(wallet)).isValidSignature(
-            testHash,
-            emptySignature
+            message,
+            ""
         );
         assertEq(
             result,
             ERC1271_MAGIC_VALUE,
-            "Should return success for any EOA signature if implementation since `isValidSignature` always succeeds"
+            "Should return success for any EOA signature"
         );
     }
 }

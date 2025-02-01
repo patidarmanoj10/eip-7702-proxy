@@ -60,8 +60,12 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
         );
     }
 
-    function test_reverts_whenCalledByNonOwner() public {
-        vm.prank(address(0xBAD));
+    function test_reverts_whenCalledByNonOwner(address nonOwner) public {
+        vm.assume(nonOwner != address(0));
+        vm.assume(nonOwner != _newOwner);
+        assumeNotPrecompile(nonOwner);
+
+        vm.prank(nonOwner);
         vm.expectRevert(MockImplementation.Unauthorized.selector); // From MockImplementation
         MockImplementation(payable(_eoa)).upgradeToAndCall(
             address(newImplementation),
