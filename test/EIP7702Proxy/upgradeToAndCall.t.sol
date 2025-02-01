@@ -3,11 +3,14 @@ pragma solidity ^0.8.23;
 
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
-import {CoinbaseSmartWallet} from "../../lib/smart-wallet/src/CoinbaseSmartWallet.sol";
-import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
+import {MockImplementation} from "../mocks/MockImplementation.sol";
 
+/**
+ * @title UpgradeToAndCallTest
+ * @dev Tests ERC-1967 upgradeability functionality of EIP7702Proxy
+ */
 contract UpgradeToAndCallTest is EIP7702ProxyBase {
-    DummyImplementation newImplementation;
+    MockImplementation newImplementation;
 
     function setUp() public override {
         super.setUp();
@@ -18,55 +21,62 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
 
         // Deploy new implementation
-        newImplementation = new DummyImplementation();
+        newImplementation = new MockImplementation();
     }
 
-    function testUpgradeToAndCall_succeedsForOwner() public {
-        // Wallet owner should be able to upgrade
+    function test_succeeds_withValidOwnerAndImplementation() public {
+        address oldImpl = _getERC1967Implementation(address(_eoa));
+
         vm.prank(_newOwner);
 
-        CoinbaseSmartWallet(payable(_eoa)).upgradeToAndCall(
+        // Expect the Upgraded event
+        vm.expectEmit(true, false, false, false, address(_eoa));
+        emit EIP7702Proxy.Upgraded(address(newImplementation));
+
+        MockImplementation(payable(_eoa)).upgradeToAndCall(
             address(newImplementation),
-            abi.encodeWithSignature("dummy()")
+            abi.encodeWithSelector(MockImplementation.mockFunction.selector)
         );
 
-        // Verify upgrade worked by calling new function
-        vm.expectEmit(true, true, true, true, _eoa);
-        emit DummyImplementation.DummyCalled();
-        DummyImplementation(payable(_eoa)).dummy();
-    }
-
-    function testUpgradeToAndCall_succeedsForEOA() public {
-        // EOA should be able to upgrade
-        vm.prank(_eoa);
-
-        CoinbaseSmartWallet(payable(_eoa)).upgradeToAndCall(
+        // Verify implementation was upgraded
+        address newImpl = _getERC1967Implementation(address(_eoa));
+        assertNotEq(newImpl, oldImpl, "Implementation should have changed");
+        assertEq(
+            newImpl,
             address(newImplementation),
-            abi.encodeWithSignature("dummy()")
+            "Implementation should be set to new address"
         );
-
-        // Verify upgrade worked by calling new function
-        vm.expectEmit(true, true, true, true, _eoa);
-        emit DummyImplementation.DummyCalled();
-        DummyImplementation(payable(_eoa)).dummy();
     }
 
-    function testUpgradeToAndCall_revertsForNonOwner() public {
-        vm.prank(address(0xBAD));
-        vm.expectRevert(); // CoinbaseSmartWallet will revert for non-owner
-        CoinbaseSmartWallet(payable(_eoa)).upgradeToAndCall(
+    function test_emitsUpgradedEvent_afterSuccess() public {
+        vm.prank(_newOwner);
+
+        vm.expectEmit(true, false, false, false, address(_eoa));
+        emit EIP7702Proxy.Upgraded(address(newImplementation));
+
+        MockImplementation(payable(_eoa)).upgradeToAndCall(
             address(newImplementation),
             ""
         );
     }
-}
 
-contract DummyImplementation is UUPSUpgradeable {
-    event DummyCalled();
+    function test_reverts_whenCalledByNonOwner(address nonOwner) public {
+        vm.assume(nonOwner != address(0));
+        vm.assume(nonOwner != _newOwner);
+        assumeNotPrecompile(nonOwner);
 
-    function dummy() external {
-        emit DummyCalled();
+        vm.prank(nonOwner);
+        vm.expectRevert(MockImplementation.Unauthorized.selector); // From MockImplementation
+        MockImplementation(payable(_eoa)).upgradeToAndCall(
+            address(newImplementation),
+            ""
+        );
+
+        // Verify implementation was not changed
+        assertEq(
+            _getERC1967Implementation(address(_eoa)),
+            address(_implementation),
+            "Implementation should not change on failed upgrade"
+        );
     }
-
-    function _authorizeUpgrade(address) internal override {}
 }
