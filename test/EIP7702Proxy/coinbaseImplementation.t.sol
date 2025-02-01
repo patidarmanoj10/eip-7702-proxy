@@ -172,6 +172,7 @@ contract CoinbaseImplementationTest is Test {
         vm.assume(amount > 0 && amount <= 100 ether);
 
         vm.deal(address(_eoa), amount);
+        vm.deal(recipient, 0);
 
         vm.prank(_newOwner);
         wallet.execute(
