@@ -93,4 +93,35 @@ contract DelegateTest is EIP7702ProxyBase {
         (bool success, ) = address(uninitProxy).call(arbitraryCalldata);
         assertFalse(success, "Low-level call should fail");
     }
+
+    function test_continues_delegating_afterUpgrade() public {
+        // Setup will have already initialized the proxy with initial implementation
+
+        // Deploy a new implementation
+        MockImplementation newImplementation = new MockImplementation();
+
+        // Upgrade to the new implementation
+        vm.prank(_newOwner);
+        MockImplementation(_eoa).upgradeToAndCall(
+            address(newImplementation),
+            ""
+        );
+
+        // Verify the implementation was changed
+        assertEq(
+            _getERC1967Implementation(_eoa),
+            address(newImplementation),
+            "Implementation should be updated"
+        );
+
+        // Try to make a call through the proxy - this should work but might fail
+        vm.prank(_newOwner);
+        MockImplementation(_eoa).mockFunction();
+
+        // Verify the call succeeded
+        assertTrue(
+            MockImplementation(_eoa).mockFunctionCalled(),
+            "Should be able to call through proxy after upgrade"
+        );
+    }
 }

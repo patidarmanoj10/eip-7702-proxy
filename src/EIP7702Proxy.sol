@@ -5,6 +5,7 @@ import {Proxy} from "openzeppelin-contracts/contracts/proxy/Proxy.sol";
 import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
+import {StorageSlot} from "openzeppelin-contracts/contracts/utils/StorageSlot.sol";
 
 /// @title EIP7702Proxy
 /// @notice Proxy contract designed for EIP-7702 smart accounts
@@ -23,6 +24,10 @@ contract EIP7702Proxy is Proxy {
 
     /// @notice Function selector on the implementation that is guarded from direct calls
     bytes4 immutable guardedInitializer;
+
+    /// @dev Storage slot with the initialized flag
+    bytes32 internal constant INITIALIZED_SLOT =
+        bytes32(uint256(keccak256("EIP7702Proxy.initialized")) - 1);
 
     /// @notice Emitted when the implementation is upgraded
     event Upgraded(address indexed implementation);
@@ -54,7 +59,7 @@ contract EIP7702Proxy is Proxy {
 
     /// @dev Checks if proxy has been initialized by comparing implementation slot
     function _isInitialized() internal view returns (bool) {
-        return _implementation() == initialImplementation;
+        return StorageSlot.getBooleanSlot(INITIALIZED_SLOT).value;
     }
 
     /// @notice Initializes the proxy and implementation with a signed payload
@@ -72,7 +77,10 @@ contract EIP7702Proxy is Proxy {
         address recovered = ECDSA.recover(hash, signature);
         if (recovered != address(this)) revert InvalidSignature();
 
-        // Set the ERC-1967 implementation slot, emit Upgraded event, call the initializer on the initial implementation
+        // Set initialized flag before upgrading
+        StorageSlot.getBooleanSlot(INITIALIZED_SLOT).value = true;
+
+        // Set the ERC-1967 implementation slot, emit Upgraded event, call the initializer
         ERC1967Utils.upgradeToAndCall(
             initialImplementation,
             abi.encodePacked(guardedInitializer, args)
@@ -91,6 +99,9 @@ contract EIP7702Proxy is Proxy {
         bytes32 hash,
         bytes calldata signature
     ) external returns (bytes4) {
+        // Check initialization status first
+        if (!_isInitialized()) revert ProxyNotInitialized();
+
         // First try delegatecall to implementation
         (bool success, bytes memory result) = _implementation().delegatecall(
             msg.data
