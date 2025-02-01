@@ -15,16 +15,6 @@ contract DelegateTest is EIP7702ProxyBase {
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
     }
 
-    function test_guardedInitializer_reverts_whenCalledDirectly() public {
-        bytes memory initData = abi.encodeWithSelector(
-            MockImplementation.initialize.selector,
-            _newOwner
-        );
-
-        vm.expectRevert(EIP7702Proxy.InvalidInitializer.selector);
-        address(_eoa).call(initData);
-    }
-
     function test_succeeds_whenReadingState() public {
         assertEq(
             MockImplementation(payable(_eoa)).owner(),
@@ -48,6 +38,16 @@ contract DelegateTest is EIP7702ProxyBase {
             testData,
             "Complex return data should be correctly delegated"
         );
+    }
+
+    function test_guardedInitializer_reverts_whenCalledDirectly() public {
+        bytes memory initData = abi.encodeWithSelector(
+            MockImplementation.initialize.selector,
+            _newOwner
+        );
+
+        vm.expectRevert(EIP7702Proxy.InvalidInitializer.selector);
+        address(_eoa).call(initData);
     }
 
     function test_reverts_whenReadReverts() public {

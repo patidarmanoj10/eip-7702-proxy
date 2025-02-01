@@ -48,6 +48,18 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
         );
     }
 
+    function test_emitsUpgradedEvent_afterSuccess() public {
+        vm.prank(_newOwner);
+
+        vm.expectEmit(true, false, false, false, address(_eoa));
+        emit EIP7702Proxy.Upgraded(address(newImplementation));
+
+        MockImplementation(payable(_eoa)).upgradeToAndCall(
+            address(newImplementation),
+            ""
+        );
+    }
+
     function test_reverts_whenCalledByNonOwner() public {
         vm.prank(address(0xBAD));
         vm.expectRevert(MockImplementation.Unauthorized.selector); // From MockImplementation
@@ -61,18 +73,6 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
             _getERC1967Implementation(address(_eoa)),
             address(_implementation),
             "Implementation should not change on failed upgrade"
-        );
-    }
-
-    function test_emitsUpgradedEvent_afterSuccess() public {
-        vm.prank(_newOwner);
-
-        vm.expectEmit(true, false, false, false, address(_eoa));
-        emit EIP7702Proxy.Upgraded(address(newImplementation));
-
-        MockImplementation(payable(_eoa)).upgradeToAndCall(
-            address(newImplementation),
-            ""
         );
     }
 }
