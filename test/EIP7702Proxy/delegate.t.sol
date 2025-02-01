@@ -95,7 +95,7 @@ contract DelegateTest is EIP7702ProxyBase {
     }
 
     function test_continues_delegating_afterUpgrade() public {
-        // Setup will have already initialized the proxy with initial implementation
+        // Setup will have already initialized the proxy with initial implementation and an owner
 
         // Deploy a new implementation
         MockImplementation newImplementation = new MockImplementation();
@@ -114,7 +114,7 @@ contract DelegateTest is EIP7702ProxyBase {
             "Implementation should be updated"
         );
 
-        // Try to make a call through the proxy - this should work but might fail
+        // Try to make a call through the proxy
         vm.prank(_newOwner);
         MockImplementation(_eoa).mockFunction();
 
