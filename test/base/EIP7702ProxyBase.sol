@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import {Test} from "forge-std/Test.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
-import {CoinbaseSmartWallet} from "../../lib/smart-wallet/src/CoinbaseSmartWallet.sol";
+import {MockImplementation} from "../mocks/MockImplementation.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 /**
@@ -13,7 +13,7 @@ import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.s
  */
 abstract contract EIP7702ProxyBase is Test {
     // Add ERC1967 implementation slot constant
-    bytes32 internal constant IMPLEMENTATION_SLOT = 
+    bytes32 internal constant IMPLEMENTATION_SLOT =
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
     // Test accounts
@@ -25,7 +25,7 @@ abstract contract EIP7702ProxyBase is Test {
 
     // Contracts
     EIP7702Proxy internal _proxy;
-    CoinbaseSmartWallet internal _implementation;
+    MockImplementation internal _implementation;
 
     // Common test data
     bytes4 internal _initSelector;
@@ -39,8 +39,8 @@ abstract contract EIP7702ProxyBase is Test {
         vm.deal(_newOwner, 100 ether);
 
         // Deploy implementation
-        _implementation = new CoinbaseSmartWallet();
-        _initSelector = CoinbaseSmartWallet.initialize.selector;
+        _implementation = new MockImplementation();
+        _initSelector = MockImplementation.initialize.selector;
 
         // Deploy proxy normally first to get the correct immutable values
         _proxy = new EIP7702Proxy(address(_implementation), _initSelector);
@@ -76,9 +76,7 @@ abstract contract EIP7702ProxyBase is Test {
     function _createInitArgs(
         address owner
     ) internal pure returns (bytes memory) {
-        bytes[] memory owners = new bytes[](1);
-        owners[0] = abi.encode(owner);
-        return abi.encode(owners);
+        return abi.encode(owner);
     }
 
     /**
@@ -86,42 +84,10 @@ abstract contract EIP7702ProxyBase is Test {
      * @param proxy Address of the proxy contract to read from
      * @return The implementation address stored in the ERC1967 slot
      */
-    function _getERC1967Implementation(address proxy) internal view returns (address) {
+    function _getERC1967Implementation(
+        address proxy
+    ) internal view returns (address) {
         return address(uint160(uint256(vm.load(proxy, IMPLEMENTATION_SLOT))));
-    }
-
-    function _sign(
-        uint256 pk,
-        bytes32 hash
-    ) internal pure returns (bytes memory signature) {
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, hash);
-        return abi.encodePacked(r, s, v);
-    }
-
-    function _createOwnerSignature(
-        bytes32 message,
-        address smartWallet,
-        uint256 ownerPk,
-        uint256 ownerIndex
-    ) internal view returns (bytes memory) {
-        bytes32 replaySafeHash = CoinbaseSmartWallet(payable(smartWallet))
-            .replaySafeHash(message);
-        bytes memory signature = _sign(ownerPk, replaySafeHash);
-        bytes memory wrappedSignature = _applySignatureWrapper(
-            ownerIndex,
-            signature
-        );
-        return wrappedSignature;
-    }
-
-    function _applySignatureWrapper(
-        uint256 ownerIndex,
-        bytes memory signatureData
-    ) internal pure returns (bytes memory) {
-        return
-            abi.encode(
-                CoinbaseSmartWallet.SignatureWrapper(ownerIndex, signatureData)
-            );
     }
 
     /**
