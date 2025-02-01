@@ -36,10 +36,17 @@ contract EIP7702Proxy is Proxy {
     /// @notice Emitted when initialization is attempted on a non-initial implementation
     error InvalidImplementation();
 
+    /// @notice Emitted when constructor arguments are zero
+    error ZeroValueConstructorArguments();
+
     /// @notice Initializes the proxy with an initial implementation and guarded initializer
     /// @param implementation The initial implementation address
     /// @param initializer The selector of the `guardedInitializer` function
     constructor(address implementation, bytes4 initializer) {
+        if (implementation == address(0))
+            revert ZeroValueConstructorArguments();
+        if (initializer == bytes4(0)) revert ZeroValueConstructorArguments();
+
         proxy = address(this);
         initialImplementation = implementation;
         guardedInitializer = initializer;
