@@ -24,9 +24,11 @@ contract EIP7702Proxy is Proxy {
     /// @notice Function selector on the implementation that is guarded from direct calls
     bytes4 immutable guardedInitializer;
 
-    /// @dev Storage slot with the initialized flag
+    /// @dev Storage slot with the initialized flag, conforms to ERC-7201
     bytes32 internal constant INITIALIZED_SLOT =
-        bytes32(uint256(keccak256("EIP7702Proxy.initialized")) - 1);
+        keccak256(
+            abi.encode(uint256(keccak256("EIP7702Proxy.initialized")) - 1)
+        ) & ~bytes32(uint256(0xff));
 
     /// @notice Emitted when the implementation is upgraded
     event Upgraded(address indexed implementation);
