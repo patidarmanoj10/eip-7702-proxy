@@ -8,14 +8,14 @@ import {StorageSlot} from "openzeppelin-contracts/contracts/utils/StorageSlot.so
 
 /// @title EIP7702Proxy
 /// @notice Proxy contract designed for EIP-7702 smart accounts
-/// @dev Implements ERC-1967 with an initial implementation and guarded initialization
+/// @dev Implements ERC-1967 with an initial implementation address and guarded initializer function
 /// @author Coinbase (https://github.com/base-org/eip-7702-proxy)
 contract EIP7702Proxy is Proxy {
     /// @notice ERC1271 interface constants
     bytes4 internal constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
     bytes4 internal constant ERC1271_FAIL_VALUE = 0xffffffff;
 
-    /// @notice Address of this proxy contract (stored as immutable)
+    /// @notice Address of this proxy contract delegate
     address immutable proxy;
 
     /// @notice Initial implementation address set during construction
@@ -24,14 +24,11 @@ contract EIP7702Proxy is Proxy {
     /// @notice Function selector on the implementation that is guarded from direct calls
     bytes4 immutable guardedInitializer;
 
-    /// @dev Storage slot with the initialized flag, conforms to ERC-7201
+    /// @dev Storage slot with the initialized flag, calculated via ERC-7201
     bytes32 internal constant INITIALIZED_SLOT =
         keccak256(
             abi.encode(uint256(keccak256("EIP7702Proxy.initialized")) - 1)
         ) & ~bytes32(uint256(0xff));
-
-    /// @notice Emitted when the implementation is upgraded
-    event Upgraded(address indexed implementation);
 
     /// @notice Emitted when the initialization signature is invalid
     error InvalidSignature();
@@ -76,9 +73,7 @@ contract EIP7702Proxy is Proxy {
         // Construct hash without Ethereum signed message prefix to prevent phishing via standard wallet signing.
         // Since this proxy is designed for EIP-7702 (where the proxy address is an EOA),
         // using a raw hash ensures that initialization signatures cannot be obtained through normal
-        // wallet "Sign Message" prompts. This prevents malicious dapps from tricking users into
-        // initializing their account via standard wallet signing flows.
-        // Wallets must implement custom signing logic at a lower level to support initialization.
+        // wallet "Sign Message" prompts.
         bytes32 hash = keccak256(abi.encode(proxy, args));
         address recovered = ECDSA.recover(hash, signature);
         if (recovered != address(this)) revert InvalidSignature();
@@ -93,7 +88,7 @@ contract EIP7702Proxy is Proxy {
         );
     }
 
-    /// @notice Handles ERC-1271 signature validation by enforcing a final ecrecover check if signatures fail `isValidSignature` check
+    /// @notice Handles ERC-1271 signature validation by enforcing a final `ecrecover` check if signatures fail `isValidSignature` check
     ///
     /// @dev This ensures EOA signatures are considered valid regardless of the implementation's `isValidSignature` implementation
     ///

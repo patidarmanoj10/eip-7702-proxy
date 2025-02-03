@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
 import {MockImplementation} from "../mocks/MockImplementation.sol";
+import {IERC1967} from "openzeppelin-contracts/contracts/interfaces/IERC1967.sol";
 
 /**
  * @title UpgradeToAndCallTest
@@ -31,7 +32,7 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
 
         // Expect the Upgraded event
         vm.expectEmit(true, false, false, false, address(_eoa));
-        emit EIP7702Proxy.Upgraded(address(newImplementation));
+        emit IERC1967.Upgraded(address(newImplementation));
 
         MockImplementation(payable(_eoa)).upgradeToAndCall(
             address(newImplementation),
@@ -52,7 +53,7 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
         vm.prank(_newOwner);
 
         vm.expectEmit(true, false, false, false, address(_eoa));
-        emit EIP7702Proxy.Upgraded(address(newImplementation));
+        emit IERC1967.Upgraded(address(newImplementation));
 
         MockImplementation(payable(_eoa)).upgradeToAndCall(
             address(newImplementation),
