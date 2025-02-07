@@ -5,6 +5,7 @@ import {Proxy} from "openzeppelin-contracts/contracts/proxy/Proxy.sol";
 import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {StorageSlot} from "openzeppelin-contracts/contracts/utils/StorageSlot.sol";
+import {INonceTracker} from "./interfaces/INonceTracker.sol";
 
 /// @title EIP7702Proxy
 /// @notice Proxy contract designed for EIP-7702 smart accounts
@@ -40,17 +41,30 @@ contract EIP7702Proxy is Proxy {
     /// @notice Emitted when constructor arguments are zero
     error ZeroValueConstructorArguments();
 
+    /// @notice Address of the global nonce tracker for initialization
+    address public immutable nonceTracker;
+
+    /// @notice Error when nonce verification fails
+    error InvalidNonce();
+
     /// @notice Initializes the proxy with an initial implementation and guarded initializer
     /// @param implementation The initial implementation address
     /// @param initializer The selector of the `guardedInitializer` function
-    constructor(address implementation, bytes4 initializer) {
+    /// @param _nonceTracker The address of the nonce tracker contract
+    constructor(
+        address implementation,
+        bytes4 initializer,
+        address _nonceTracker
+    ) {
         if (implementation == address(0))
             revert ZeroValueConstructorArguments();
         if (initializer == bytes4(0)) revert ZeroValueConstructorArguments();
+        if (_nonceTracker == address(0)) revert ZeroValueConstructorArguments();
 
         proxy = address(this);
         initialImplementation = implementation;
         guardedInitializer = initializer;
+        nonceTracker = _nonceTracker;
     }
 
     /// @notice Initializes the proxy and implementation with a signed payload
@@ -63,14 +77,30 @@ contract EIP7702Proxy is Proxy {
         bytes calldata args,
         bytes calldata signature
     ) external {
-        // Construct hash using typehash to prevent signature collisions
-        bytes32 hash = keccak256(
-            abi.encode(INIT_TYPEHASH, proxy, keccak256(args))
+        uint256 expectedNonce = INonceTracker(nonceTracker).getNextNonce(
+            address(this)
         );
-        address recovered = ECDSA.recover(hash, signature);
-        if (recovered != address(this)) revert InvalidSignature();
 
-        // Set the ERC-1967 implementation slot, emit Upgraded event, call the initializer
+        // Construct hash using typehash to prevent signature collisions
+        bytes32 initHash = keccak256(
+            abi.encode(INIT_TYPEHASH, proxy, keccak256(args), expectedNonce)
+        );
+
+        // Verify signature is from the EOA
+        address signer = ECDSA.recover(initHash, signature);
+        if (signer != address(this)) revert InvalidSignature();
+
+        // Verify and consume the nonce
+        if (
+            !INonceTracker(nonceTracker).verifyAndUseNonce(
+                address(this),
+                expectedNonce
+            )
+        ) {
+            revert InvalidNonce();
+        }
+
+        // Initialize the implementation
         ERC1967Utils.upgradeToAndCall(
             initialImplementation,
             abi.encodePacked(guardedInitializer, args)
