@@ -145,5 +145,6 @@ contract EIP7702Proxy is Proxy {
         return ERC1967Utils.getImplementation();
     }
 
+    /// @notice Allow the account to receive ETH under any circumstances
     receive() external payable {}
 }
