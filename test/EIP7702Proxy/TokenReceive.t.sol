@@ -82,4 +82,28 @@ contract TokenReceiveTest is CoinbaseImplementationTest {
         token.transfer(uninitProxy, TOKEN_AMOUNT);
         assertEq(token.balanceOf(uninitProxy), TOKEN_AMOUNT);
     }
+
+    function test_succeeds_ETHTransfer_afterInitialization() public {
+        // Fund test contract
+        vm.deal(address(this), 1 ether);
+
+        // Send ETH to initialized wallet
+        (bool success, ) = _eoa.call{value: 1 ether}("");
+        assertTrue(success);
+        assertEq(_eoa.balance, 1 ether);
+    }
+
+    function test_succeeds_ETHTransfer_beforeInitialization() public {
+        // Deploy proxy without initializing
+        address payable uninitProxy = payable(makeAddr("uninitProxy"));
+        _deployProxy(uninitProxy);
+
+        // Fund test contract
+        vm.deal(address(this), 1 ether);
+
+        // Send ETH to uninitialized wallet
+        (bool success, ) = uninitProxy.call{value: 1 ether}("");
+        assertTrue(success);
+        assertEq(uninitProxy.balance, 1 ether);
+    }
 }
