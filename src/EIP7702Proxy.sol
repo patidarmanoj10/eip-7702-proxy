@@ -29,6 +29,9 @@ contract EIP7702Proxy is Proxy {
     /// @notice Function selector on the implementation that is guarded from direct calls
     bytes4 immutable guardedInitializer;
 
+    /// @notice Address of the global nonce tracker for initialization
+    address public immutable nonceTracker;
+
     /// @notice Emitted when the initialization signature is invalid
     error InvalidSignature();
 
@@ -40,9 +43,6 @@ contract EIP7702Proxy is Proxy {
 
     /// @notice Emitted when constructor arguments are zero
     error ZeroValueConstructorArguments();
-
-    /// @notice Address of the global nonce tracker for initialization
-    address public immutable nonceTracker;
 
     /// @notice Error when nonce verification fails
     error InvalidNonce();
