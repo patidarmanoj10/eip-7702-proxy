@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
 import {CoinbaseSmartWallet} from "../../lib/smart-wallet/src/CoinbaseSmartWallet.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {NonceTracker} from "../../src/NonceTracker.sol";
 
 /**
  * @title CoinbaseImplementationTest
@@ -21,6 +22,7 @@ contract CoinbaseImplementationTest is Test {
     CoinbaseSmartWallet implementation;
     EIP7702Proxy proxy;
     bytes4 initSelector;
+    NonceTracker nonceTracker;
 
     bytes4 constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
     bytes4 constant ERC1271_FAIL_VALUE = 0xffffffff;
@@ -30,16 +32,20 @@ contract CoinbaseImplementationTest is Test {
         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
-        // Deploy Coinbase implementation
+        // Deploy Coinbase implementation and nonce tracker
         implementation = new CoinbaseSmartWallet();
+        nonceTracker = new NonceTracker();
         initSelector = CoinbaseSmartWallet.initialize.selector;
 
         // Deploy and setup proxy
-        proxy = new EIP7702Proxy(address(implementation), initSelector);
+        proxy = new EIP7702Proxy(
+            address(implementation),
+            initSelector,
+            address(nonceTracker)
+        );
         bytes memory proxyCode = address(proxy).code;
         vm.etch(_eoa, proxyCode);
 
-        // Initialize with Coinbase implementation
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
@@ -75,7 +81,12 @@ contract CoinbaseImplementationTest is Test {
             "EIP7702ProxyInitialization(address proxy,bytes args)"
         );
         bytes32 initHash = keccak256(
-            abi.encode(INIT_TYPEHASH, proxy, keccak256(initArgs))
+            abi.encode(
+                INIT_TYPEHASH,
+                proxy,
+                keccak256(initArgs),
+                nonceTracker.getNextNonce(_eoa)
+            )
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
         return abi.encodePacked(r, s, v);
@@ -139,7 +150,8 @@ contract CoinbaseImplementationTest is Test {
         // Deploy proxy normally first to get the correct immutable values
         EIP7702Proxy newProxy = new EIP7702Proxy(
             address(implementation),
-            initSelector
+            initSelector,
+            address(nonceTracker)
         );
 
         // Get the proxy's runtime code
