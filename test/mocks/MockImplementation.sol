@@ -121,3 +121,22 @@ contract RevertingInitializerMockImplementation is MockImplementation {
         revert("InitializerReverted");
     }
 }
+
+/**
+ * @dev Mock implementation that returns ERC1271_MAGIC_VALUE with extra data
+ */
+contract MockImplementationWithExtraData is MockImplementation {
+    function isValidSignature(
+        bytes32,
+        bytes memory
+    ) public pure override returns (bytes4) {
+        // Return magic value (0x1626ba7e) followed by extra data
+        bytes32 returnValue = bytes32(bytes4(ERC1271_MAGIC_VALUE)) |
+            bytes32(uint256(0xdeadbeef) << 32);
+        assembly {
+            // Need assembly to return more than 4 bytes from a function declared to return bytes4
+            mstore(0x00, returnValue)
+            return(0x00, 32)
+        }
+    }
+}

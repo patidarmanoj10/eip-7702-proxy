@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
-import {MockImplementation, FailingSignatureImplementation, RevertingIsValidSignatureImplementation} from "../mocks/MockImplementation.sol";
+import {MockImplementation, FailingSignatureImplementation, RevertingIsValidSignatureImplementation, MockImplementationWithExtraData} from "../mocks/MockImplementation.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 /**
@@ -306,5 +306,78 @@ contract RevertingImplementationTest is IsValidSignatureTestBase {
         returns (bytes4)
     {
         return ERC1271_FAIL_VALUE;
+    }
+}
+
+/**
+ * @dev Tests isValidSignature behavior when implementation returns ERC1271_MAGIC_VALUE with extra data
+ */
+contract ExtraDataTest is IsValidSignatureTestBase {
+    function test_mockReturnsExtraData() public {
+        MockImplementationWithExtraData mock = new MockImplementationWithExtraData();
+
+        // Call isValidSignature and capture the raw return data
+        (bool success, bytes memory returnData) = address(mock).staticcall(
+            abi.encodeWithSelector(
+                mock.isValidSignature.selector,
+                bytes32(0),
+                new bytes(0)
+            )
+        );
+
+        require(success, "Call failed");
+        require(returnData.length == 32, "Should return 32 bytes");
+
+        // Log the full return data
+        emit log_named_bytes("Return data", returnData);
+
+        // Also log as bytes32 for easier reading
+        bytes32 returnDataAs32 = abi.decode(returnData, (bytes32));
+        emit log_named_bytes32("Return data as bytes32", returnDataAs32);
+    }
+
+    function setUp() public override {
+        // Override base setup to use MockImplementationWithExtraData
+        _implementation = new MockImplementationWithExtraData();
+        _initSelector = MockImplementation.initialize.selector;
+
+        _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
+        _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
+
+        // Deploy and setup proxy
+        _proxy = new EIP7702Proxy(address(_implementation), _initSelector);
+        bytes memory proxyCode = address(_proxy).code;
+        vm.etch(_eoa, proxyCode);
+
+        // Initialize
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
+        EIP7702Proxy(_eoa).initialize(initArgs, signature);
+
+        super.setUp();
+    }
+
+    function expectedInvalidSignatureResult()
+        internal
+        pure
+        override
+        returns (bytes4)
+    {
+        return ERC1271_MAGIC_VALUE; // Implementation always returns success (with extra data)
+    }
+
+    function test_succeeds_withExtraReturnData(bytes32 message) public {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, message);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        bytes4 result = MockImplementation(payable(wallet)).isValidSignature(
+            message,
+            signature
+        );
+        assertEq(
+            result,
+            ERC1271_MAGIC_VALUE,
+            "Should accept signature even with extra return data"
+        );
     }
 }

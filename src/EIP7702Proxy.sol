@@ -98,7 +98,7 @@ contract EIP7702Proxy is Proxy {
         if (
             success &&
             result.length == 32 &&
-            abi.decode(result, (bytes4)) == ERC1271_MAGIC_VALUE
+            bytes4(result) == ERC1271_MAGIC_VALUE
         ) {
             return ERC1271_MAGIC_VALUE;
         }
