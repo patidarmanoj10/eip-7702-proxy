@@ -111,16 +111,4 @@ abstract contract EIP7702ProxyBase is Test {
 
         return target;
     }
-
-    /// @dev Helper to create initialization data hash
-    function _createInitHash(
-        address proxyAddress,
-        bytes memory args
-    ) internal pure returns (bytes32) {
-        bytes32 INIT_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialize(address proxy,bytes args)"
-        );
-        return
-            keccak256(abi.encode(INIT_TYPEHASH, proxyAddress, keccak256(args)));
-    }
 }
