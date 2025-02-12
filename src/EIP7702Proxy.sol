@@ -78,6 +78,9 @@ contract EIP7702Proxy is Proxy {
     ///
     /// @dev This ensures EOA signatures are considered valid regardless of the implementation's `isValidSignature` implementation
     ///
+    /// @dev When calling `isValidSignature` from the implementation contract, note that calling `this.isValidSignature` will invoke this
+    ///      function and make an `ecrecover` check, whereas calling a public `isValidSignature` directly from the implementation contract will not.
+    ///
     /// @param hash The hash of the message being signed
     /// @param signature The signature of the message
     ///
@@ -100,12 +103,14 @@ contract EIP7702Proxy is Proxy {
             return ERC1271_MAGIC_VALUE;
         }
 
-        // Only try ECDSA if signature is the right length (65 bytes)
-        if (signature.length == 65) {
-            address recovered = ECDSA.recover(hash, signature);
-            if (recovered == address(this)) {
-                return ERC1271_MAGIC_VALUE;
-            }
+        // Try ECDSA recovery with error checking
+        (address recovered, ECDSA.RecoverError error, ) = ECDSA.tryRecover(
+            hash,
+            signature
+        );
+        // Only return success if there was no error and the signer matches
+        if (error == ECDSA.RecoverError.NoError && recovered == address(this)) {
+            return ERC1271_MAGIC_VALUE;
         }
 
         // If all checks fail, return failure value

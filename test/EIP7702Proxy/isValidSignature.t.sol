@@ -114,6 +114,115 @@ contract FailingImplementationTest is IsValidSignatureTestBase {
         );
         assertEq(result, ERC1271_FAIL_VALUE, "Should reject empty signature");
     }
+
+    function test_returnsFailureValue_withInvalidS(bytes32 message) public {
+        // Create a signature with obviously invalid s value
+        // Valid s values must be < n/2 where n is the curve order
+        // Using max uint256 value which is clearly too large
+        bytes32 r = bytes32(uint256(1));
+        bytes32 s = bytes32(type(uint256).max); // 2^256 - 1, way above valid range
+        uint8 v = 27;
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // We can use tryRecover directly to verify the exact error
+        (address recovered, ECDSA.RecoverError error, bytes32 errorArg) = ECDSA
+            .tryRecover(message, signature);
+        assertEq(
+            recovered,
+            address(0),
+            "Recovered address should be zero for invalid signature"
+        );
+        assertEq(
+            uint8(error),
+            uint8(ECDSA.RecoverError.InvalidSignatureS),
+            "Should be InvalidSignatureS error"
+        );
+        assertEq(errorArg, s, "Error arg should be the invalid s value");
+
+        bytes4 result = MockImplementation(payable(wallet)).isValidSignature(
+            message,
+            signature
+        );
+        assertEq(
+            result,
+            ERC1271_FAIL_VALUE,
+            "Should reject signature with invalid s value"
+        );
+    }
+
+    function test_returnsFailureValue_withInvalidV(bytes32 message) public {
+        // Create signature with invalid v value (only 27 and 28 are valid)
+        bytes32 r = bytes32(uint256(1));
+        bytes32 s = bytes32(uint256(1));
+        uint8 v = 26;
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // Verify the exact error from tryRecover
+        (address recovered, ECDSA.RecoverError error, bytes32 errorArg) = ECDSA
+            .tryRecover(message, signature);
+        assertEq(
+            recovered,
+            address(0),
+            "Recovered address should be zero for invalid signature"
+        );
+        assertEq(
+            uint8(error),
+            uint8(ECDSA.RecoverError.InvalidSignature),
+            "Should be InvalidSignature error"
+        );
+        assertEq(
+            errorArg,
+            bytes32(0),
+            "Error arg should be zero for invalid signature"
+        );
+
+        bytes4 result = MockImplementation(payable(wallet)).isValidSignature(
+            message,
+            signature
+        );
+        assertEq(
+            result,
+            ERC1271_FAIL_VALUE,
+            "Should reject signature with invalid v value"
+        );
+    }
+
+    function test_returnsFailureValue_withInvalidR(bytes32 message) public {
+        // Create signature with invalid r value (using max uint256 which is above the curve order)
+        bytes32 r = bytes32(type(uint256).max);
+        bytes32 s = bytes32(uint256(1));
+        uint8 v = 27;
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // Verify the exact error from tryRecover
+        (address recovered, ECDSA.RecoverError error, bytes32 errorArg) = ECDSA
+            .tryRecover(message, signature);
+        assertEq(
+            recovered,
+            address(0),
+            "Recovered address should be zero for invalid signature"
+        );
+        assertEq(
+            uint8(error),
+            uint8(ECDSA.RecoverError.InvalidSignature),
+            "Should be InvalidSignature error"
+        );
+        assertEq(
+            errorArg,
+            bytes32(0),
+            "Error arg should be zero for invalid signature"
+        );
+
+        bytes4 result = MockImplementation(payable(wallet)).isValidSignature(
+            message,
+            signature
+        );
+        assertEq(
+            result,
+            ERC1271_FAIL_VALUE,
+            "Should reject signature with invalid r value"
+        );
+    }
 }
 
 /**
