@@ -59,7 +59,12 @@ abstract contract EIP7702ProxyBase is Test {
         uint256 signerPk,
         bytes memory initArgs
     ) internal view returns (bytes memory) {
-        bytes32 initHash = keccak256(abi.encode(_proxy, initArgs));
+        bytes32 INIT_TYPEHASH = keccak256(
+            "EIP7702ProxyInitialize(address proxy,bytes args)"
+        );
+        bytes32 initHash = keccak256(
+            abi.encode(INIT_TYPEHASH, _proxy, keccak256(initArgs))
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
         return abi.encodePacked(r, s, v);
     }
@@ -105,5 +110,17 @@ abstract contract EIP7702ProxyBase is Test {
         vm.etch(target, proxyCode);
 
         return target;
+    }
+
+    /// @dev Helper to create initialization data hash
+    function _createInitHash(
+        address proxyAddress,
+        bytes memory args
+    ) internal pure returns (bytes32) {
+        bytes32 INIT_TYPEHASH = keccak256(
+            "EIP7702ProxyInitialize(address proxy,bytes args)"
+        );
+        return
+            keccak256(abi.encode(INIT_TYPEHASH, proxyAddress, keccak256(args)));
     }
 }

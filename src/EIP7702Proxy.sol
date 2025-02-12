@@ -15,6 +15,10 @@ contract EIP7702Proxy is Proxy {
     bytes4 internal constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
     bytes4 internal constant ERC1271_FAIL_VALUE = 0xffffffff;
 
+    /// @notice Typehash for initialization signatures
+    bytes32 private constant INIT_TYPEHASH =
+        keccak256("EIP7702ProxyInitialize(address proxy,bytes args)");
+
     /// @notice Address of this proxy contract delegate
     address immutable proxy;
 
@@ -59,11 +63,10 @@ contract EIP7702Proxy is Proxy {
         bytes calldata args,
         bytes calldata signature
     ) external {
-        // Construct hash without Ethereum signed message prefix to prevent phishing via standard wallet signing.
-        // Since this proxy is designed for EIP-7702 (where the proxy address is an EOA),
-        // using a raw hash ensures that initialization signatures cannot be obtained through normal
-        // wallet "Sign Message" prompts.
-        bytes32 hash = keccak256(abi.encode(proxy, args));
+        // Construct hash using typehash to prevent signature collisions
+        bytes32 hash = keccak256(
+            abi.encode(INIT_TYPEHASH, proxy, keccak256(args))
+        );
         address recovered = ECDSA.recover(hash, signature);
         if (recovered != address(this)) revert InvalidSignature();
 

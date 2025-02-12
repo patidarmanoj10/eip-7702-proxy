@@ -71,7 +71,12 @@ contract CoinbaseImplementationTest is Test {
         uint256 signerPk,
         bytes memory initArgs
     ) internal view returns (bytes memory) {
-        bytes32 initHash = keccak256(abi.encode(proxy, initArgs));
+        bytes32 INIT_TYPEHASH = keccak256(
+            "EIP7702ProxyInitialize(address proxy,bytes args)"
+        );
+        bytes32 initHash = keccak256(
+            abi.encode(INIT_TYPEHASH, proxy, keccak256(initArgs))
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
         return abi.encodePacked(r, s, v);
     }
