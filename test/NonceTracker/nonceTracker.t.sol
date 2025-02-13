@@ -54,7 +54,13 @@ contract NonceTrackerTest is Test {
         vm.assume(invalidNonce != expectedNonce);
 
         vm.prank(account);
-        vm.expectRevert(NonceTracker.InvalidNonce.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                NonceTracker.InvalidNonce.selector,
+                expectedNonce,
+                invalidNonce
+            )
+        );
         nonceTracker.verifyAndUseNonce(invalidNonce);
     }
 
@@ -113,7 +119,13 @@ contract NonceTrackerTest is Test {
 
         // Try to reuse same nonce
         vm.prank(account);
-        vm.expectRevert(NonceTracker.InvalidNonce.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                NonceTracker.InvalidNonce.selector,
+                nonce + 1,
+                nonce
+            )
+        );
         nonceTracker.verifyAndUseNonce(nonce);
     }
 
@@ -133,7 +145,13 @@ contract NonceTrackerTest is Test {
 
         // Try to use account's nonce from a different address
         vm.prank(caller);
-        vm.expectRevert(NonceTracker.InvalidNonce.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                NonceTracker.InvalidNonce.selector,
+                callerNonce + 1, // expected nonce has incremented
+                accountNonce // actual nonce
+            )
+        );
         nonceTracker.verifyAndUseNonce(accountNonce);
     }
 }

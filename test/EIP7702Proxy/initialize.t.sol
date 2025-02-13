@@ -213,11 +213,15 @@ contract InitializeTest is EIP7702ProxyBase {
         vm.assume(address(secondProxy) != address(0));
         vm.assume(address(secondProxy) != address(_eoa));
         vm.assume(address(secondProxy) != address(_nonceTracker));
+        vm.assume(address(secondProxy) != address(_implementation));
         assumeNotPrecompile(address(secondProxy));
+
+        // Basic checks for newOwner
         vm.assume(newOwner != address(0));
         vm.assume(newOwner != address(_eoa));
         vm.assume(newOwner != address(_nonceTracker));
         vm.assume(newOwner != address(secondProxy));
+        vm.assume(newOwner != address(_implementation));
         assumeNotPrecompile(newOwner);
 
         // Get signature for first proxy

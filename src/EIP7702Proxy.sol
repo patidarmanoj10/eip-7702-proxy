@@ -47,7 +47,7 @@ contract EIP7702Proxy is Proxy {
     error ZeroValueConstructorArguments();
 
     /// @notice Error when nonce verification fails
-    error InvalidNonce();
+    error InvalidNonce(uint256 expected, uint256 actual);
 
     /// @notice Initializes the proxy with an initial implementation and guarded initializer
     /// @param implementation The initial implementation address
@@ -92,10 +92,8 @@ contract EIP7702Proxy is Proxy {
         address signer = ECDSA.recover(initHash, signature);
         if (signer != address(this)) revert InvalidSignature();
 
-        // Verify and consume the nonce
-        if (!INonceTracker(nonceTracker).verifyAndUseNonce(expectedNonce)) {
-            revert InvalidNonce();
-        }
+        // Verify and consume the nonce, reverts if invalid
+        INonceTracker(nonceTracker).verifyAndUseNonce(expectedNonce);
 
         // Initialize the implementation
         ERC1967Utils.upgradeToAndCall(
