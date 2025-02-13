@@ -16,7 +16,7 @@ contract NonceTrackerTest is Test {
         account = vm.addr(ACCOUNT_PK);
     }
 
-    function test_initialNonceIsZero() public {
+    function test_getNextNonce_initialNonceIsZero() public {
         assertEq(
             nonceTracker.getNextNonce(account),
             0,
@@ -24,7 +24,7 @@ contract NonceTrackerTest is Test {
         );
     }
 
-    function test_incrementsNonce_afterVerification() public {
+    function test_getNextNonce_incrementsNonce_afterVerification() public {
         uint256 nonce = nonceTracker.getNextNonce(account);
 
         vm.prank(account);
@@ -40,7 +40,7 @@ contract NonceTrackerTest is Test {
         );
     }
 
-    function test_emitsEvent_whenNonceUsed() public {
+    function test_getNextNonce_emitsEvent_whenNonceUsed() public {
         uint256 nonce = nonceTracker.getNextNonce(account);
 
         vm.expectEmit(true, false, false, true);
@@ -49,7 +49,9 @@ contract NonceTrackerTest is Test {
         nonceTracker.verifyAndUseNonce(nonce);
     }
 
-    function test_reverts_whenNonceInvalid(uint256 invalidNonce) public {
+    function test_verifyAndUseNonce_reverts_whenNonceInvalid(
+        uint256 invalidNonce
+    ) public {
         uint256 expectedNonce = nonceTracker.getNextNonce(account);
         vm.assume(invalidNonce != expectedNonce);
 
@@ -64,7 +66,7 @@ contract NonceTrackerTest is Test {
         nonceTracker.verifyAndUseNonce(invalidNonce);
     }
 
-    function test_maintainsCorrectNonce_afterMultipleIncrements(
+    function test_getNextNonce_maintainsCorrectNonce_afterMultipleIncrements(
         uint8 incrementCount
     ) public {
         uint256 expectedNonce = 0;
@@ -92,7 +94,7 @@ contract NonceTrackerTest is Test {
         );
     }
 
-    function test_tracksNoncesIndependently_forDifferentAccounts(
+    function test_getNextNonce_tracksNoncesIndependently_forDifferentAccounts(
         address otherAccount
     ) public {
         vm.assume(otherAccount != account);
@@ -110,7 +112,7 @@ contract NonceTrackerTest is Test {
         );
     }
 
-    function test_reverts_whenReusingNonce() public {
+    function test_verifyAndUseNonce_reverts_whenReusingNonce() public {
         uint256 nonce = nonceTracker.getNextNonce(account);
 
         // Use nonce first time
@@ -129,7 +131,9 @@ contract NonceTrackerTest is Test {
         nonceTracker.verifyAndUseNonce(nonce);
     }
 
-    function test_reverts_whenCallerNotAccount(address caller) public {
+    function test_verifyAndUseNonce_reverts_whenCallerNotAccount(
+        address caller
+    ) public {
         vm.assume(caller != account);
 
         // Get nonces for both accounts
