@@ -203,7 +203,7 @@ contract InitializeTest is EIP7702ProxyBase {
         // Initialize the proxy
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes32 INIT_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialize(address proxy,bytes args)"
+            "EIP7702ProxyInitialization(address proxy,bytes args)"
         );
         bytes32 initHash = keccak256(
             abi.encode(

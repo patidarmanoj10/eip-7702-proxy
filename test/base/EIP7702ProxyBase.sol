@@ -60,7 +60,7 @@ abstract contract EIP7702ProxyBase is Test {
         bytes memory initArgs
     ) internal view returns (bytes memory) {
         bytes32 INIT_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialize(address proxy,bytes args)"
+            "EIP7702ProxyInitialization(address proxy,bytes args)"
         );
         bytes32 initHash = keccak256(
             abi.encode(INIT_TYPEHASH, _proxy, keccak256(initArgs))
