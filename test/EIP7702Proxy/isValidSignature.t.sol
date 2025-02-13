@@ -3,6 +3,7 @@ pragma solidity ^0.8.23;
 
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
+import {NonceTracker} from "../../src/NonceTracker.sol";
 import {MockImplementation, FailingSignatureImplementation, RevertingIsValidSignatureImplementation, MockImplementationWithExtraData} from "../mocks/MockImplementation.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
@@ -353,13 +354,18 @@ contract ExtraDataTest is IsValidSignatureTestBase {
     function setUp() public override {
         // Override base setup to use MockImplementationWithExtraData
         _implementation = new MockImplementationWithExtraData();
+        _nonceTracker = new NonceTracker();
         _initSelector = MockImplementation.initialize.selector;
 
         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
         // Deploy and setup proxy
-        _proxy = new EIP7702Proxy(address(_implementation), _initSelector);
+        _proxy = new EIP7702Proxy(
+            address(_implementation),
+            _initSelector,
+            address(_nonceTracker)
+        );
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);
 

@@ -78,7 +78,7 @@ contract CoinbaseImplementationTest is Test {
         bytes memory initArgs
     ) internal view returns (bytes memory) {
         bytes32 INIT_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialization(address proxy,bytes args)"
+            "EIP7702ProxyInitialization(address proxy,bytes args,uint256 nonce)"
         );
         bytes32 initHash = keccak256(
             abi.encode(

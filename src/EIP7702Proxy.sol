@@ -18,7 +18,9 @@ contract EIP7702Proxy is Proxy {
 
     /// @notice Typehash for initialization signatures
     bytes32 private constant INIT_TYPEHASH =
-        keccak256("EIP7702ProxyInitialization(address proxy,bytes args)");
+        keccak256(
+            "EIP7702ProxyInitialization(address proxy,bytes args,uint256 nonce)"
+        );
 
     /// @notice Address of this proxy contract delegate
     address immutable proxy;
