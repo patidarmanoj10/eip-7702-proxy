@@ -14,7 +14,7 @@ import {StorageSlot} from "openzeppelin-contracts/contracts/utils/StorageSlot.so
 ///
 /// @dev Implements ERC-1967 with an initial implementation address and guarded initializer function
 ///
-/// @author Coinbase (https://github.com/base-org/eip-7702-proxy)
+/// @author Coinbase (https://github.com/base/eip-7702-proxy)
 contract EIP7702Proxy is Proxy {
     /// @notice ERC1271 interface constants
     bytes4 internal constant ERC1271_MAGIC_VALUE = 0x1626ba7e;

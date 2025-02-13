@@ -9,7 +9,7 @@ pragma solidity ^0.8.23;
 ///      of the 7702 account itself to prevent the nonce from being tampered with by other arbitrary delegates
 ///      of the account.
 ///
-/// @author Coinbase (https://github.com/base-org/eip-7702-proxy)
+/// @author Coinbase (https://github.com/base/eip-7702-proxy)
 contract NonceTracker {
     /// @notice Mapping of account => nonce
     mapping(address => uint256) private _nonces;
