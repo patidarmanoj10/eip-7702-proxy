@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.23;
 
-import {Test} from "forge-std/Test.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
-import {MockImplementation} from "../mocks/MockImplementation.sol";
+import {NonceTracker} from "../../src/NonceTracker.sol";
+
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+
+import {Test} from "forge-std/Test.sol";
+import {MockImplementation} from "../mocks/MockImplementation.sol";
 
 /**
  * @title EIP7702ProxyBase
@@ -25,6 +28,7 @@ abstract contract EIP7702ProxyBase is Test {
     /// @dev Core contract instances
     EIP7702Proxy internal _proxy;
     MockImplementation internal _implementation;
+    NonceTracker internal _nonceTracker;
 
     /// @dev Function selector for initialization
     bytes4 internal _initSelector;
@@ -32,15 +36,19 @@ abstract contract EIP7702ProxyBase is Test {
     function setUp() public virtual {
         // Set up test accounts
         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
-
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
-        // Deploy implementation
+        // Deploy implementation and nonce tracker
         _implementation = new MockImplementation();
+        _nonceTracker = new NonceTracker();
         _initSelector = MockImplementation.initialize.selector;
 
         // Deploy proxy normally first to get the correct immutable values
-        _proxy = new EIP7702Proxy(address(_implementation), _initSelector);
+        _proxy = new EIP7702Proxy(
+            address(_implementation),
+            _initSelector,
+            _nonceTracker
+        );
 
         // Get the proxy's runtime code
         bytes memory proxyCode = address(_proxy).code;
@@ -60,10 +68,11 @@ abstract contract EIP7702ProxyBase is Test {
         bytes memory initArgs
     ) internal view returns (bytes memory) {
         bytes32 INIT_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialization(address proxy,bytes args)"
+            "EIP7702ProxyInitialization(address proxy,bytes args,uint256 nonce)"
         );
+        uint256 nonce = _nonceTracker.getNextNonce(address(_eoa));
         bytes32 initHash = keccak256(
-            abi.encode(INIT_TYPEHASH, _proxy, keccak256(initArgs))
+            abi.encode(INIT_TYPEHASH, _proxy, keccak256(initArgs), nonce)
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
         return abi.encodePacked(r, s, v);
@@ -100,7 +109,8 @@ abstract contract EIP7702ProxyBase is Test {
         // Deploy proxy normally first to get the correct immutable values
         EIP7702Proxy proxy = new EIP7702Proxy(
             address(_implementation),
-            _initSelector
+            _initSelector,
+            _nonceTracker
         );
 
         // Get the proxy's runtime code

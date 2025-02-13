@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.23;
 
-import {CoinbaseImplementationTest} from "./coinbaseImplementation.t.sol";
+import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
+
 import {MockERC721} from "../mocks/MockERC721.sol";
 import {MockERC1155} from "../mocks/MockERC1155.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
-import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
+import {CoinbaseImplementationTest} from "./coinbaseImplementation.t.sol";
 
 contract TokenReceiveTest is CoinbaseImplementationTest {
     MockERC721 public nft;

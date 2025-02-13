@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.23;
 
-import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
-import {MockImplementation, FailingSignatureImplementation, RevertingIsValidSignatureImplementation, MockImplementationWithExtraData} from "../mocks/MockImplementation.sol";
+import {NonceTracker} from "../../src/NonceTracker.sol";
+
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+
+import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
+import {MockImplementation, FailingSignatureImplementation, RevertingIsValidSignatureImplementation, MockImplementationWithExtraData} from "../mocks/MockImplementation.sol";
 
 /**
  * @title IsValidSignatureTestBase
@@ -18,6 +21,8 @@ abstract contract IsValidSignatureTestBase is EIP7702ProxyBase {
     address wallet;
 
     function setUp() public virtual override {
+        super.setUp();
+
         testHash = keccak256("test message");
         wallet = _eoa;
     }
@@ -76,6 +81,8 @@ abstract contract IsValidSignatureTestBase is EIP7702ProxyBase {
  */
 contract FailingImplementationTest is IsValidSignatureTestBase {
     function setUp() public override {
+        super.setUp();
+
         // Override base setup to use FailingSignatureImplementation
         _implementation = new FailingSignatureImplementation();
         _initSelector = MockImplementation.initialize.selector;
@@ -84,7 +91,11 @@ contract FailingImplementationTest is IsValidSignatureTestBase {
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
         // Deploy and setup proxy
-        _proxy = new EIP7702Proxy(address(_implementation), _initSelector);
+        _proxy = new EIP7702Proxy(
+            address(_implementation),
+            _initSelector,
+            _nonceTracker
+        );
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);
 
@@ -92,8 +103,6 @@ contract FailingImplementationTest is IsValidSignatureTestBase {
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
-
-        super.setUp();
     }
 
     function expectedInvalidSignatureResult()
@@ -230,6 +239,8 @@ contract FailingImplementationTest is IsValidSignatureTestBase {
  */
 contract SucceedingImplementationTest is IsValidSignatureTestBase {
     function setUp() public override {
+        super.setUp();
+
         // Override base implementation with standard MockImplementation (always succeeds)
         _implementation = new MockImplementation();
         _initSelector = MockImplementation.initialize.selector;
@@ -238,7 +249,11 @@ contract SucceedingImplementationTest is IsValidSignatureTestBase {
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
         // Deploy and setup proxy
-        _proxy = new EIP7702Proxy(address(_implementation), _initSelector);
+        _proxy = new EIP7702Proxy(
+            address(_implementation),
+            _initSelector,
+            _nonceTracker
+        );
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);
 
@@ -246,8 +261,6 @@ contract SucceedingImplementationTest is IsValidSignatureTestBase {
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
-
-        super.setUp();
     }
 
     function expectedInvalidSignatureResult()
@@ -279,6 +292,8 @@ contract SucceedingImplementationTest is IsValidSignatureTestBase {
  */
 contract RevertingImplementationTest is IsValidSignatureTestBase {
     function setUp() public override {
+        super.setUp();
+
         // Override base setup to use RevertingIsValidSignatureImplementation
         _implementation = new RevertingIsValidSignatureImplementation();
         _initSelector = MockImplementation.initialize.selector;
@@ -287,7 +302,11 @@ contract RevertingImplementationTest is IsValidSignatureTestBase {
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
         // Deploy and setup proxy
-        _proxy = new EIP7702Proxy(address(_implementation), _initSelector);
+        _proxy = new EIP7702Proxy(
+            address(_implementation),
+            _initSelector,
+            _nonceTracker
+        );
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);
 
@@ -295,8 +314,6 @@ contract RevertingImplementationTest is IsValidSignatureTestBase {
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
         EIP7702Proxy(_eoa).initialize(initArgs, signature);
-
-        super.setUp();
     }
 
     function expectedInvalidSignatureResult()
@@ -339,13 +356,18 @@ contract ExtraDataTest is IsValidSignatureTestBase {
     function setUp() public override {
         // Override base setup to use MockImplementationWithExtraData
         _implementation = new MockImplementationWithExtraData();
+        _nonceTracker = new NonceTracker();
         _initSelector = MockImplementation.initialize.selector;
 
         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
         // Deploy and setup proxy
-        _proxy = new EIP7702Proxy(address(_implementation), _initSelector);
+        _proxy = new EIP7702Proxy(
+            address(_implementation),
+            _initSelector,
+            _nonceTracker
+        );
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);
 

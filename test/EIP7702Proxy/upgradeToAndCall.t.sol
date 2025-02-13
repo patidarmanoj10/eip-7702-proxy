@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.23;
 
-import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
-import {MockImplementation} from "../mocks/MockImplementation.sol";
+
 import {IERC1967} from "openzeppelin-contracts/contracts/interfaces/IERC1967.sol";
+
+import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
+import {MockImplementation} from "../mocks/MockImplementation.sol";
 
 /**
  * @title UpgradeToAndCallTest
