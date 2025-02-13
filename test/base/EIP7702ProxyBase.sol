@@ -45,7 +45,7 @@ abstract contract EIP7702ProxyBase is Test {
         _proxy = new EIP7702Proxy(
             address(_implementation),
             _initSelector,
-            address(_nonceTracker)
+            _nonceTracker
         );
 
         // Get the proxy's runtime code
@@ -108,7 +108,7 @@ abstract contract EIP7702ProxyBase is Test {
         EIP7702Proxy proxy = new EIP7702Proxy(
             address(_implementation),
             _initSelector,
-            address(_nonceTracker)
+            _nonceTracker
         );
 
         // Get the proxy's runtime code

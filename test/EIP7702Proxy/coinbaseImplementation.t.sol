@@ -41,7 +41,7 @@ contract CoinbaseImplementationTest is Test {
         proxy = new EIP7702Proxy(
             address(implementation),
             initSelector,
-            address(nonceTracker)
+            nonceTracker
         );
         bytes memory proxyCode = address(proxy).code;
         vm.etch(_eoa, proxyCode);
@@ -151,7 +151,7 @@ contract CoinbaseImplementationTest is Test {
         EIP7702Proxy newProxy = new EIP7702Proxy(
             address(implementation),
             initSelector,
-            address(nonceTracker)
+            nonceTracker
         );
 
         // Get the proxy's runtime code

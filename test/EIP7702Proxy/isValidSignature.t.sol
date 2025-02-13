@@ -92,7 +92,7 @@ contract FailingImplementationTest is IsValidSignatureTestBase {
         _proxy = new EIP7702Proxy(
             address(_implementation),
             _initSelector,
-            address(_nonceTracker)
+            _nonceTracker
         );
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);
@@ -250,7 +250,7 @@ contract SucceedingImplementationTest is IsValidSignatureTestBase {
         _proxy = new EIP7702Proxy(
             address(_implementation),
             _initSelector,
-            address(_nonceTracker)
+            _nonceTracker
         );
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);
@@ -303,7 +303,7 @@ contract RevertingImplementationTest is IsValidSignatureTestBase {
         _proxy = new EIP7702Proxy(
             address(_implementation),
             _initSelector,
-            address(_nonceTracker)
+            _nonceTracker
         );
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);
@@ -364,7 +364,7 @@ contract ExtraDataTest is IsValidSignatureTestBase {
         _proxy = new EIP7702Proxy(
             address(_implementation),
             _initSelector,
-            address(_nonceTracker)
+            _nonceTracker
         );
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);

@@ -111,7 +111,7 @@ contract UpgradeEOA is Script {
         proxy = new EIP7702Proxy{salt: salt}(
             address(implementation),
             initSelector,
-            address(nonceTracker)
+            nonceTracker
         );
         console.log("Proxy deployed at:", address(proxy));
 

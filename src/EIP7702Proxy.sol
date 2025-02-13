@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.23;
 
+import {NonceTracker} from "./NonceTracker.sol";
 import {Proxy} from "openzeppelin-contracts/contracts/proxy/Proxy.sol";
 import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {StorageSlot} from "openzeppelin-contracts/contracts/utils/StorageSlot.sol";
-import {INonceTracker} from "./interfaces/INonceTracker.sol";
 
 /// @title EIP7702Proxy
 /// @notice Proxy contract designed for EIP-7702 smart accounts
@@ -32,7 +32,7 @@ contract EIP7702Proxy is Proxy {
     bytes4 immutable guardedInitializer;
 
     /// @notice Address of the global nonce tracker for initialization
-    address public immutable nonceTracker;
+    NonceTracker public immutable nonceTracker;
 
     /// @notice Emitted when the initialization signature is invalid
     error InvalidSignature();
@@ -56,12 +56,13 @@ contract EIP7702Proxy is Proxy {
     constructor(
         address implementation,
         bytes4 initializer,
-        address _nonceTracker
+        NonceTracker _nonceTracker
     ) {
         if (implementation == address(0))
             revert ZeroValueConstructorArguments();
         if (initializer == bytes4(0)) revert ZeroValueConstructorArguments();
-        if (_nonceTracker == address(0)) revert ZeroValueConstructorArguments();
+        if (address(_nonceTracker) == address(0))
+            revert ZeroValueConstructorArguments();
 
         proxy = address(this);
         initialImplementation = implementation;
@@ -79,9 +80,7 @@ contract EIP7702Proxy is Proxy {
         bytes calldata args,
         bytes calldata signature
     ) external {
-        uint256 expectedNonce = INonceTracker(nonceTracker).getNextNonce(
-            address(this)
-        );
+        uint256 expectedNonce = nonceTracker.getNextNonce(address(this));
 
         // Construct hash using typehash to prevent signature collisions
         bytes32 initHash = keccak256(
@@ -93,7 +92,7 @@ contract EIP7702Proxy is Proxy {
         if (signer != address(this)) revert InvalidSignature();
 
         // Verify and consume the nonce, reverts if invalid
-        INonceTracker(nonceTracker).verifyAndUseNonce(expectedNonce);
+        nonceTracker.verifyAndUseNonce(expectedNonce);
 
         // Initialize the implementation
         ERC1967Utils.upgradeToAndCall(

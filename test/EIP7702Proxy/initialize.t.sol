@@ -3,6 +3,7 @@ pragma solidity ^0.8.23;
 
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
+import {NonceTracker} from "../../src/NonceTracker.sol";
 import {MockImplementation, RevertingInitializerMockImplementation} from "../mocks/MockImplementation.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol";
@@ -73,7 +74,7 @@ contract InitializeTest is EIP7702ProxyBase {
         EIP7702Proxy proxyTemplate = new EIP7702Proxy(
             address(_implementation),
             _initSelector,
-            address(_nonceTracker)
+            _nonceTracker
         );
         bytes memory proxyCode = address(proxyTemplate).code;
         vm.etch(uninitProxy, proxyCode);
@@ -189,7 +190,7 @@ contract InitializeTest is EIP7702ProxyBase {
         _proxy = new EIP7702Proxy(
             address(_implementation),
             _initSelector,
-            address(_nonceTracker)
+            _nonceTracker
         );
 
         // Get the proxy's runtime code
@@ -287,21 +288,21 @@ contract InitializeTest is EIP7702ProxyBase {
         new EIP7702Proxy(
             address(0),
             MockImplementation.initialize.selector,
-            address(_nonceTracker)
+            _nonceTracker
         );
     }
 
     function test_constructor_reverts_whenInitializerZero() public {
         vm.expectRevert(EIP7702Proxy.ZeroValueConstructorArguments.selector);
-        new EIP7702Proxy(
-            address(_implementation),
-            bytes4(0),
-            address(_nonceTracker)
-        );
+        new EIP7702Proxy(address(_implementation), bytes4(0), _nonceTracker);
     }
 
     function test_reverts_whenNonceTrackerAddressZero() public {
         vm.expectRevert(EIP7702Proxy.ZeroValueConstructorArguments.selector);
-        new EIP7702Proxy(address(_implementation), _initSelector, address(0));
+        new EIP7702Proxy(
+            address(_implementation),
+            _initSelector,
+            NonceTracker(payable(address(0)))
+        );
     }
 }
