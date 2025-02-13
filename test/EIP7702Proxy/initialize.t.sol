@@ -116,8 +116,9 @@ contract InitializeTest is EIP7702ProxyBase {
         vm.assume(address(secondProxy) != address(0));
         vm.assume(address(secondProxy) != address(_eoa));
         assumeNotPrecompile(address(secondProxy));
-        assumeNotPrecompile(newOwner);
-
+        vm.assume(newOwner != address(0));
+        vm.assume(newOwner != address(_eoa));
+        vm.assume(newOwner != address(secondProxy));
         // Get signature for first proxy
         bytes memory initArgs = _createInitArgs(newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
