@@ -2,10 +2,13 @@
 pragma solidity ^0.8.23;
 
 /// @title NonceTracker
+///
 /// @notice A separate storage contract for securely tracking nonces for EIP-7702 proxies.
+///
 /// @dev This contract is used to track nonces for EIP-7702 proxies. It is separate from the storage location
 ///      of the 7702 account itself to prevent the nonce from being tampered with by other arbitrary delegates
 ///      of the account.
+///
 /// @author Coinbase (https://github.com/base-org/eip-7702-proxy)
 contract NonceTracker {
     /// @notice Mapping of account => nonce
@@ -23,8 +26,11 @@ contract NonceTracker {
     }
 
     /// @notice Verify and consume a nonce for the caller
+    ///
     /// @dev Reverts if nonce doesn't match the next expected value
+    ///
     /// @param nonce The nonce to verify
+    ///
     /// @return true if nonce was valid and consumed
     function verifyAndUseNonce(uint256 nonce) external returns (bool) {
         if (nonce != _nonces[msg.sender])

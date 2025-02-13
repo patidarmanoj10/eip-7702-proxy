@@ -8,8 +8,11 @@ import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.s
 import {StorageSlot} from "openzeppelin-contracts/contracts/utils/StorageSlot.sol";
 
 /// @title EIP7702Proxy
+///
 /// @notice Proxy contract designed for EIP-7702 smart accounts
+///
 /// @dev Implements ERC-1967 with an initial implementation address and guarded initializer function
+///
 /// @author Coinbase (https://github.com/base-org/eip-7702-proxy)
 contract EIP7702Proxy is Proxy {
     /// @notice ERC1271 interface constants
@@ -23,16 +26,16 @@ contract EIP7702Proxy is Proxy {
         );
 
     /// @notice Address of this proxy contract delegate
-    address immutable proxy;
+    address immutable PROXY;
 
     /// @notice Initial implementation address set during construction
-    address immutable initialImplementation;
+    address immutable INITIAL_IMPLEMENTATION;
 
     /// @notice Function selector on the implementation that is guarded from direct calls
-    bytes4 immutable guardedInitializer;
+    bytes4 immutable GUARDED_INITIALIZER;
 
     /// @notice Address of the global nonce tracker for initialization
-    NonceTracker public immutable nonceTracker;
+    NonceTracker public immutable NONCE_TRACKER;
 
     /// @notice Emitted when the initialization signature is invalid
     error InvalidSignature();
@@ -50,6 +53,7 @@ contract EIP7702Proxy is Proxy {
     error InvalidNonce(uint256 expected, uint256 actual);
 
     /// @notice Initializes the proxy with an initial implementation and guarded initializer
+    ///
     /// @param implementation The initial implementation address
     /// @param initializer The selector of the `guardedInitializer` function
     /// @param _nonceTracker The address of the nonce tracker contract
@@ -64,10 +68,10 @@ contract EIP7702Proxy is Proxy {
         if (address(_nonceTracker) == address(0))
             revert ZeroValueConstructorArguments();
 
-        proxy = address(this);
-        initialImplementation = implementation;
-        guardedInitializer = initializer;
-        nonceTracker = _nonceTracker;
+        PROXY = address(this);
+        INITIAL_IMPLEMENTATION = implementation;
+        GUARDED_INITIALIZER = initializer;
+        NONCE_TRACKER = _nonceTracker;
     }
 
     /// @notice Initializes the proxy and implementation with a signed payload
@@ -80,11 +84,11 @@ contract EIP7702Proxy is Proxy {
         bytes calldata args,
         bytes calldata signature
     ) external {
-        uint256 expectedNonce = nonceTracker.getNextNonce(address(this));
+        uint256 expectedNonce = NONCE_TRACKER.getNextNonce(address(this));
 
         // Construct hash using typehash to prevent signature collisions
         bytes32 initHash = keccak256(
-            abi.encode(INIT_TYPEHASH, proxy, keccak256(args), expectedNonce)
+            abi.encode(INIT_TYPEHASH, PROXY, keccak256(args), expectedNonce)
         );
 
         // Verify signature is from the EOA
@@ -92,12 +96,12 @@ contract EIP7702Proxy is Proxy {
         if (signer != address(this)) revert InvalidSignature();
 
         // Verify and consume the nonce, reverts if invalid
-        nonceTracker.verifyAndUseNonce(expectedNonce);
+        NONCE_TRACKER.verifyAndUseNonce(expectedNonce);
 
         // Initialize the implementation
         ERC1967Utils.upgradeToAndCall(
-            initialImplementation,
-            abi.encodePacked(guardedInitializer, args)
+            INITIAL_IMPLEMENTATION,
+            abi.encodePacked(GUARDED_INITIALIZER, args)
         );
     }
 
@@ -149,16 +153,17 @@ contract EIP7702Proxy is Proxy {
     /// @dev Guards a specified initializer function from being called directly
     function _fallback() internal override {
         // block guarded initializer from being called
-        if (msg.sig == guardedInitializer) revert InvalidInitializer();
+        if (msg.sig == GUARDED_INITIALIZER) revert InvalidInitializer();
 
         _delegate(_implementation());
     }
 
     /// @notice Returns the implementation address, falling back to the initial implementation if the ERC-1967 implementation slot is not set
+    ///
     /// @return The implementation address
     function _implementation() internal view override returns (address) {
         if (ERC1967Utils.getImplementation() == address(0))
-            return initialImplementation;
+            return INITIAL_IMPLEMENTATION;
         return ERC1967Utils.getImplementation();
     }
 
