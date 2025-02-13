@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {Test} from "forge-std/Test.sol";
-import {NonceTracker} from "../../src/NonceTracker.sol";
+import {NonceTracker} from "../src/NonceTracker.sol";
 
 contract NonceTrackerTest is Test {
     NonceTracker public nonceTracker;

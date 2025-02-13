@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.23;
 
-import {Test} from "forge-std/Test.sol";
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
-import {MockImplementation} from "../mocks/MockImplementation.sol";
 import {NonceTracker} from "../../src/NonceTracker.sol";
+
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+
+import {Test} from "forge-std/Test.sol";
+import {MockImplementation} from "../mocks/MockImplementation.sol";
 
 /**
  * @title EIP7702ProxyBase
