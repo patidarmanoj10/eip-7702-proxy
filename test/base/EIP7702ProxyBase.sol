@@ -106,15 +106,8 @@ abstract contract EIP7702ProxyBase is Test {
      * @return The target address (for convenience)
      */
     function _deployProxy(address target) internal returns (address) {
-        // Deploy proxy normally first to get the correct immutable values
-        EIP7702Proxy proxy = new EIP7702Proxy(
-            address(_implementation),
-            _initSelector,
-            _nonceTracker
-        );
-
         // Get the proxy's runtime code
-        bytes memory proxyCode = address(proxy).code;
+        bytes memory proxyCode = address(_proxy).code;
 
         // Etch the proxy code at the target address
         vm.etch(target, proxyCode);
