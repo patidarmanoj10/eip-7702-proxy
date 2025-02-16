@@ -68,7 +68,7 @@ abstract contract EIP7702ProxyBase is Test {
         bytes memory initArgs
     ) internal view returns (bytes memory) {
         bytes32 INIT_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialization(address proxy,bytes args,uint256 nonce)"
+            "EIP7702ProxyInitialization(address proxy,bytes32 args,uint256 nonce)"
         );
         uint256 nonce = _nonceTracker.getNextNonce(address(_eoa));
         bytes32 initHash = keccak256(
