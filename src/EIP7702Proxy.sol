@@ -26,6 +26,12 @@ contract EIP7702Proxy is Proxy {
             "EIP7702ProxyInitialization(address proxy,bytes32 args,uint256 nonce)"
         );
 
+    /// @notice Typehash for implementation reset signatures
+    bytes32 private constant RESET_IMPLEMENTATION_TYPEHASH =
+        keccak256(
+            "EIP7702ProxyImplementationReset(address proxy,address implementation,uint256 nonce)"
+        );
+
     /// @notice Address of this proxy contract delegate
     address immutable PROXY;
 
@@ -170,4 +176,39 @@ contract EIP7702Proxy is Proxy {
 
     /// @notice Allow the account to receive ETH under any circumstances
     receive() external payable {}
+
+    /// @notice Resets the ERC-1967 implementation slot after signature verification, allowing the account to
+    ///         correct the implementation address if it's ever compromised by an unknown delegate or implementation.
+    ///
+    /// @dev Signature must be from this contract's address
+    ///
+    /// @param newImplementation The implementation address to set
+    /// @param signature The EOA signature authorizing this change
+    function resetImplementation(
+        address newImplementation,
+        bytes calldata signature
+    ) external {
+        // Get expected nonce from tracker
+        uint256 expectedNonce = NONCE_TRACKER.getNextNonce(address(this));
+
+        // Construct hash using typehash to prevent signature collisions
+        bytes32 resetHash = keccak256(
+            abi.encode(
+                RESET_IMPLEMENTATION_TYPEHASH,
+                PROXY,
+                newImplementation,
+                expectedNonce
+            )
+        );
+
+        // Verify signature is from this address (the EOA)
+        address signer = ECDSA.recover(resetHash, signature);
+        if (signer != address(this)) revert InvalidSignature();
+
+        // Verify and consume the nonce, reverts if invalid
+        NONCE_TRACKER.verifyAndUseNonce(expectedNonce);
+
+        // Reset the implementation slot
+        ERC1967Utils.upgradeToAndCall(newImplementation, "");
+    }
 }
