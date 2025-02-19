@@ -4,7 +4,6 @@ pragma solidity ^0.8.23;
 import {Proxy} from "openzeppelin-contracts/contracts/proxy/Proxy.sol";
 import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {StorageSlot} from "openzeppelin-contracts/contracts/utils/StorageSlot.sol";
 
 import {NonceTracker} from "./NonceTracker.sol";
 
@@ -41,19 +40,19 @@ contract EIP7702Proxy is Proxy {
     /// @notice Address of this proxy contract delegate
     address internal immutable _PROXY;
 
-    /// @notice Emitted when constructor arguments are zero
+    /// @notice Constructor arguments are zero
     error ZeroValueConstructorArguments();
 
-    /// @notice Emitted when the initialization signature is invalid
+    /// @notice Initialization signature is invalid
     error InvalidSignature();
 
-    /// @notice Emitted when the `guardedInitializer` is called
+    /// @notice Call to `GUARDED_INTIALIZER` attempted
     error InvalidInitializer();
 
     /// @notice Initializes the proxy with an initial implementation and guarded initializer
     ///
     /// @param implementation The initial implementation address
-    /// @param initializer The selector of the `guardedInitializer` function
+    /// @param initializer The selector of the initializer function on `implementation` to guard
     /// @param nonceTracker The address of the nonce tracker contract
     constructor(address implementation, bytes4 initializer, NonceTracker nonceTracker) {
         if (implementation == address(0)) revert ZeroValueConstructorArguments();
@@ -147,9 +146,8 @@ contract EIP7702Proxy is Proxy {
             return _ERC1271_MAGIC_VALUE;
         }
 
-        // Try ECDSA recovery with error checking
-        (address recovered, ECDSA.RecoverError error,) = ECDSA.tryRecover(hash, signature);
         // Only return success if there was no error and the signer matches
+        (address recovered, ECDSA.RecoverError error,) = ECDSA.tryRecover(hash, signature);
         if (error == ECDSA.RecoverError.NoError && recovered == address(this)) {
             return _ERC1271_MAGIC_VALUE;
         }

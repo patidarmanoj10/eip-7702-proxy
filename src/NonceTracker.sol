@@ -11,10 +11,10 @@ pragma solidity ^0.8.23;
 ///
 /// @author Coinbase (https://github.com/base/eip-7702-proxy)
 contract NonceTracker {
-    /// @notice Mapping of account => nonce
-    mapping(address => uint256) public nonces;
+    /// @notice Track nonces per-account to mitigate signature replayability
+    mapping(address account => uint256 nonce) public nonces;
 
-    /// @notice Emitted when a nonce is used
+    /// @notice An account's nonce has been used
     event NonceUsed(address indexed account, uint256 nonce);
 
     /// @notice Consume a nonce for the caller
