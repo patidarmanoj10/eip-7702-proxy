@@ -15,7 +15,7 @@ contract ResetImplementationTest is EIP7702ProxyBase {
     MockImplementation newImplementation;
     bytes32 private constant RESET_IMPLEMENTATION_TYPEHASH =
         keccak256(
-            "EIP7702ProxyImplementationReset(address proxy,address currentImplementation,address newImplementation,uint256 chainId,uint256 nonce)"
+            "EIP7702ProxyImplementationReset(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation)"
         );
 
     function setUp() public override {
@@ -75,6 +75,33 @@ contract ResetImplementationTest is EIP7702ProxyBase {
             address(newImplementation),
             signature,
             0
+        );
+
+        assertEq(
+            _getERC1967Implementation(_eoa),
+            address(newImplementation),
+            "Implementation should be set to new address"
+        );
+    }
+
+    function test_succeeds_withNonzeroChainId() public {
+        // Get signature for reset with chainId 0 (cross-chain)
+        bytes memory signature = _signResetData(
+            _EOA_PRIVATE_KEY,
+            address(newImplementation),
+            block.chainid
+        );
+
+        // Reset implementation
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            block.chainid
+        );
+        assertEq(
+            _getERC1967Implementation(_eoa),
+            address(newImplementation),
+            "Implementation should be set to new address"
         );
     }
 

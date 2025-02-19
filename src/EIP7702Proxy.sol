@@ -29,7 +29,7 @@ contract EIP7702Proxy is Proxy {
     /// @notice Typehash for resetting implementation, including chainId and current implementation
     bytes32 private constant RESET_IMPLEMENTATION_TYPEHASH =
         keccak256(
-            "EIP7702ProxyImplementationReset(address proxy,address currentImplementation,address newImplementation,uint256 chainId,uint256 nonce)"
+            "EIP7702ProxyImplementationReset(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation)"
         );
 
     /// @notice Address of this proxy contract delegate
@@ -181,9 +181,9 @@ contract EIP7702Proxy is Proxy {
     receive() external payable {}
 
     /// @notice Resets the ERC-1967 implementation slot after signature verification, allowing the account to
-    ///         correct the implementation address if it's ever compromised by an unknown delegate or implementation.
+    ///         correct the implementation address if it's ever changed by an unknown delegate or implementation.
     ///
-    /// @dev Signature must be from this contract's address
+    /// @dev Signature must be from the EOA's address that is 7702-delegating to this proxy
     ///
     /// @param newImplementation The implementation address to set
     /// @param signature The EOA signature authorizing this change
