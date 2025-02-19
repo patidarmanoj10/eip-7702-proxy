@@ -30,14 +30,12 @@ contract NonceTracker {
     /// @dev Reverts if nonce doesn't match the next expected value
     ///
     /// @param nonce The nonce to verify
-    ///
-    /// @return true if nonce was valid and consumed
-    function verifyAndUseNonce(uint256 nonce) external returns (bool) {
-        if (nonce != _nonces[msg.sender])
+    function verifyAndUseNonce(uint256 nonce) external {
+        if (nonce != _nonces[msg.sender]) {
             revert InvalidNonce(_nonces[msg.sender], nonce);
+        }
 
         _nonces[msg.sender] = nonce + 1;
         emit NonceUsed(msg.sender, nonce);
-        return true;
     }
 }

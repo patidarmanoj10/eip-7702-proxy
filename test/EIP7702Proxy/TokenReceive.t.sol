@@ -64,13 +64,7 @@ contract TokenReceiveTest is CoinbaseImplementationTest {
         multiToken.mint(regularAddress, TOKEN_ID, AMOUNT, "");
 
         vm.prank(regularAddress);
-        multiToken.safeTransferFrom(
-            regularAddress,
-            uninitProxy,
-            TOKEN_ID,
-            AMOUNT,
-            ""
-        );
+        multiToken.safeTransferFrom(regularAddress, uninitProxy, TOKEN_ID, AMOUNT, "");
         assertEq(multiToken.balanceOf(uninitProxy, TOKEN_ID), AMOUNT);
     }
 
@@ -89,7 +83,7 @@ contract TokenReceiveTest is CoinbaseImplementationTest {
         vm.deal(address(this), 1 ether);
 
         // Send ETH to initialized wallet
-        (bool success, ) = _eoa.call{value: 1 ether}("");
+        (bool success,) = _eoa.call{value: 1 ether}("");
         assertTrue(success);
         assertEq(_eoa.balance, 1 ether);
     }
@@ -103,7 +97,7 @@ contract TokenReceiveTest is CoinbaseImplementationTest {
         vm.deal(address(this), 1 ether);
 
         // Send ETH to uninitialized wallet
-        (bool success, ) = uninitProxy.call{value: 1 ether}("");
+        (bool success,) = uninitProxy.call{value: 1 ether}("");
         assertTrue(success);
         assertEq(uninitProxy.balance, 1 ether);
     }

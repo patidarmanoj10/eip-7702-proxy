@@ -40,11 +40,7 @@ contract CoinbaseImplementationTest is Test {
         initSelector = CoinbaseSmartWallet.initialize.selector;
 
         // Deploy and setup proxy
-        proxy = new EIP7702Proxy(
-            address(implementation),
-            initSelector,
-            nonceTracker
-        );
+        proxy = new EIP7702Proxy(address(implementation), initSelector, nonceTracker);
         bytes memory proxyCode = address(proxy).code;
         vm.etch(_eoa, proxyCode);
 
@@ -61,9 +57,7 @@ contract CoinbaseImplementationTest is Test {
      * @param owner Address to set as the initial owner
      * @return Encoded initialization arguments for CoinbaseSmartWallet
      */
-    function _createInitArgs(
-        address owner
-    ) internal pure returns (bytes memory) {
+    function _createInitArgs(address owner) internal pure returns (bytes memory) {
         bytes[] memory owners = new bytes[](1);
         owners[0] = abi.encode(owner);
         return abi.encode(owners);
@@ -75,22 +69,11 @@ contract CoinbaseImplementationTest is Test {
      * @param initArgs Initialization arguments to sign
      * @return Signature bytes
      */
-    function _signInitData(
-        uint256 signerPk,
-        bytes memory initArgs
-    ) internal view returns (bytes memory) {
-        bytes32 INIT_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialization(uint256 chainId,address proxy,bytes32 args,uint256 nonce)"
-        );
-        bytes32 initHash = keccak256(
-            abi.encode(
-                INIT_TYPEHASH,
-                0,
-                proxy,
-                keccak256(initArgs),
-                nonceTracker.getNextNonce(_eoa)
-            )
-        );
+    function _signInitData(uint256 signerPk, bytes memory initArgs) internal view returns (bytes memory) {
+        bytes32 INIT_TYPEHASH =
+            keccak256("EIP7702ProxyInitialization(uint256 chainId,address proxy,bytes32 args,uint256 nonce)");
+        bytes32 initHash =
+            keccak256(abi.encode(INIT_TYPEHASH, 0, proxy, keccak256(initArgs), nonceTracker.getNextNonce(_eoa)));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
         return abi.encodePacked(r, s, v);
     }
@@ -101,10 +84,7 @@ contract CoinbaseImplementationTest is Test {
      * @param hash Message hash to sign
      * @return signature Encoded signature bytes
      */
-    function _sign(
-        uint256 pk,
-        bytes32 hash
-    ) internal pure returns (bytes memory signature) {
+    function _sign(uint256 pk, bytes32 hash) internal pure returns (bytes memory signature) {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, hash);
         return abi.encodePacked(r, s, v);
     }
@@ -117,14 +97,12 @@ contract CoinbaseImplementationTest is Test {
      * @param ownerIndex Index of the owner in the wallet's owner list
      * @return Wrapped signature bytes
      */
-    function _createOwnerSignature(
-        bytes32 message,
-        address smartWallet,
-        uint256 ownerPk,
-        uint256 ownerIndex
-    ) internal view returns (bytes memory) {
-        bytes32 replaySafeHash = CoinbaseSmartWallet(payable(smartWallet))
-            .replaySafeHash(message);
+    function _createOwnerSignature(bytes32 message, address smartWallet, uint256 ownerPk, uint256 ownerIndex)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes32 replaySafeHash = CoinbaseSmartWallet(payable(smartWallet)).replaySafeHash(message);
         bytes memory signature = _sign(ownerPk, replaySafeHash);
         return _applySignatureWrapper(ownerIndex, signature);
     }
@@ -135,14 +113,12 @@ contract CoinbaseImplementationTest is Test {
      * @param signatureData Raw signature bytes to wrap
      * @return Encoded signature wrapper
      */
-    function _applySignatureWrapper(
-        uint256 ownerIndex,
-        bytes memory signatureData
-    ) internal pure returns (bytes memory) {
-        return
-            abi.encode(
-                CoinbaseSmartWallet.SignatureWrapper(ownerIndex, signatureData)
-            );
+    function _applySignatureWrapper(uint256 ownerIndex, bytes memory signatureData)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(CoinbaseSmartWallet.SignatureWrapper(ownerIndex, signatureData));
     }
 
     /**
@@ -159,24 +135,12 @@ contract CoinbaseImplementationTest is Test {
 
     // ======== Tests ========
     function test_initialize_setsOwner() public {
-        assertTrue(
-            wallet.isOwnerAddress(_newOwner),
-            "New owner should be owner after initialization"
-        );
+        assertTrue(wallet.isOwnerAddress(_newOwner), "New owner should be owner after initialization");
     }
 
-    function test_isValidSignature_succeeds_withValidOwnerSignature(
-        bytes32 message
-    ) public {
-        assertTrue(
-            wallet.isOwnerAddress(_newOwner),
-            "New owner should be owner after initialization"
-        );
-        assertEq(
-            wallet.ownerAtIndex(0),
-            abi.encode(_newOwner),
-            "Owner at index 0 should be new owner"
-        );
+    function test_isValidSignature_succeeds_withValidOwnerSignature(bytes32 message) public {
+        assertTrue(wallet.isOwnerAddress(_newOwner), "New owner should be owner after initialization");
+        assertEq(wallet.ownerAtIndex(0), abi.encode(_newOwner), "Owner at index 0 should be new owner");
 
         bytes memory signature = _createOwnerSignature(
             message,
@@ -186,17 +150,10 @@ contract CoinbaseImplementationTest is Test {
         );
 
         bytes4 result = wallet.isValidSignature(message, signature);
-        assertEq(
-            result,
-            ERC1271_MAGIC_VALUE,
-            "Should accept valid contract owner signature"
-        );
+        assertEq(result, ERC1271_MAGIC_VALUE, "Should accept valid contract owner signature");
     }
 
-    function test_execute_transfersEth_whenCalledByOwner(
-        address recipient,
-        uint256 amount
-    ) public {
+    function test_execute_transfersEth_whenCalledByOwner(address recipient, uint256 amount) public {
         vm.assume(recipient != address(0));
         vm.assume(recipient != address(_eoa));
         assumeNotPrecompile(recipient);
@@ -213,16 +170,10 @@ contract CoinbaseImplementationTest is Test {
             "" // empty calldata for simple transfer
         );
 
-        assertEq(
-            recipient.balance,
-            amount,
-            "Coinbase wallet execute should transfer ETH"
-        );
+        assertEq(recipient.balance, amount, "Coinbase wallet execute should transfer ETH");
     }
 
-    function test_upgradeToAndCall_reverts_whenCalledByNonOwner(
-        address nonOwner
-    ) public {
+    function test_upgradeToAndCall_reverts_whenCalledByNonOwner(address nonOwner) public {
         vm.assume(nonOwner != address(0));
         vm.assume(nonOwner != _newOwner); // Ensure caller isn't the actual owner
         vm.assume(nonOwner != _eoa); // Ensure caller isn't the EOA address
