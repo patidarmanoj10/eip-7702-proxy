@@ -84,7 +84,7 @@ contract FailingImplementationTest is IsValidSignatureTestBase {
         // Initialize
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature);
+        EIP7702Proxy(_eoa).initialize(initArgs, signature, 0);
     }
 
     function expectedInvalidSignatureResult() internal pure override returns (bytes4) {
@@ -172,7 +172,7 @@ contract SucceedingImplementationTest is IsValidSignatureTestBase {
         // Initialize
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature);
+        EIP7702Proxy(_eoa).initialize(initArgs, signature, 0);
     }
 
     function expectedInvalidSignatureResult() internal pure override returns (bytes4) {
@@ -207,7 +207,7 @@ contract RevertingImplementationTest is IsValidSignatureTestBase {
         // Initialize
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature);
+        EIP7702Proxy(_eoa).initialize(initArgs, signature, 0);
     }
 
     function expectedInvalidSignatureResult() internal pure override returns (bytes4) {
@@ -254,7 +254,7 @@ contract ExtraDataTest is IsValidSignatureTestBase {
         // Initialize
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature);
+        EIP7702Proxy(_eoa).initialize(initArgs, signature, 0);
 
         super.setUp();
     }

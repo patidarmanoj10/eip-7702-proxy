@@ -106,7 +106,7 @@ contract Initialize is Script {
         vm.startBroadcast(eoaPk);
 
         // Try to initialize, but handle the case where it's already initialized
-        try EIP7702Proxy(payable(eoa)).initialize(initArgs, initSignature) {
+        try EIP7702Proxy(payable(eoa)).initialize(initArgs, initSignature, 0) {
             console.log("[OK] Successfully initialized the smart wallet");
         } catch Error(string memory reason) {
             console.log("[INFO] Initialize call reverted with reason:", reason);
