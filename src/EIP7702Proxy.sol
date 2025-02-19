@@ -98,9 +98,8 @@ contract EIP7702Proxy is Proxy {
     ) external {
         uint256 expectedNonce = NONCE_TRACKER.getNextNonce(address(this));
 
-        uint256 currentChainId = block.chainid;
-
         // Verify chain ID if specified (revert if non-zero and doesn't match)
+        uint256 currentChainId = block.chainid;
         if (chainId != 0 && chainId != currentChainId) {
             revert InvalidChainId();
         }
