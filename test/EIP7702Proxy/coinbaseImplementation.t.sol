@@ -50,7 +50,7 @@ contract CoinbaseImplementationTest is Test {
 
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature);
+        EIP7702Proxy(_eoa).initialize(initArgs, signature, 0);
 
         wallet = CoinbaseSmartWallet(payable(_eoa));
     }
@@ -80,11 +80,12 @@ contract CoinbaseImplementationTest is Test {
         bytes memory initArgs
     ) internal view returns (bytes memory) {
         bytes32 INIT_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialization(address proxy,bytes32 args,uint256 nonce)"
+            "EIP7702ProxyInitialization(uint256 chainId,address proxy,bytes32 args,uint256 nonce)"
         );
         bytes32 initHash = keccak256(
             abi.encode(
                 INIT_TYPEHASH,
+                0,
                 proxy,
                 keccak256(initArgs),
                 nonceTracker.getNextNonce(_eoa)
@@ -239,6 +240,6 @@ contract CoinbaseImplementationTest is Test {
 
         // Try to initialize again
         vm.expectRevert(CoinbaseSmartWallet.Initialized.selector);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature);
+        EIP7702Proxy(_eoa).initialize(initArgs, signature, 0);
     }
 }

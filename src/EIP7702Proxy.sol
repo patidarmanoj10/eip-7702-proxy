@@ -23,7 +23,7 @@ contract EIP7702Proxy is Proxy {
     /// @notice Typehash for initialization signatures
     bytes32 private constant INIT_TYPEHASH =
         keccak256(
-            "EIP7702ProxyInitialization(address proxy,bytes32 args,uint256 nonce)"
+            "EIP7702ProxyInitialization(uint256 chainId,address proxy,bytes32 args,uint256 nonce)"
         );
 
     /// @notice Typehash for resetting implementation, including chainId and current implementation
@@ -90,15 +90,29 @@ contract EIP7702Proxy is Proxy {
     ///
     /// @param args The initialization arguments for the implementation
     /// @param signature The signature authorizing initialization
+    /// @param chainId Optional: if 0, allows cross-chain signatures
     function initialize(
         bytes calldata args,
-        bytes calldata signature
+        bytes calldata signature,
+        uint256 chainId
     ) external {
         uint256 expectedNonce = NONCE_TRACKER.getNextNonce(address(this));
 
+        // Verify chain ID if specified (revert if non-zero and doesn't match)
+        uint256 currentChainId = block.chainid;
+        if (chainId != 0 && chainId != currentChainId) {
+            revert InvalidChainId();
+        }
+
         // Construct hash using typehash to prevent signature collisions
         bytes32 initHash = keccak256(
-            abi.encode(INIT_TYPEHASH, PROXY, keccak256(args), expectedNonce)
+            abi.encode(
+                INIT_TYPEHASH,
+                chainId == 0 ? 0 : currentChainId,
+                PROXY,
+                keccak256(args),
+                expectedNonce
+            )
         );
 
         // Verify signature is from the EOA
