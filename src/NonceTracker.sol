@@ -12,30 +12,16 @@ pragma solidity ^0.8.23;
 /// @author Coinbase (https://github.com/base/eip-7702-proxy)
 contract NonceTracker {
     /// @notice Mapping of account => nonce
-    mapping(address => uint256) private _nonces;
+    mapping(address => uint256) public nonces;
 
     /// @notice Emitted when a nonce is used
     event NonceUsed(address indexed account, uint256 nonce);
 
-    /// @notice Error when nonce is invalid
-    error InvalidNonce(uint256 expected, uint256 actual);
-
-    /// @notice Get the next expected nonce for an account
-    function getNextNonce(address account) external view returns (uint256) {
-        return _nonces[account];
-    }
-
-    /// @notice Verify and consume a nonce for the caller
+    /// @notice Consume a nonce for the caller
     ///
-    /// @dev Reverts if nonce doesn't match the next expected value
-    ///
-    /// @param nonce The nonce to verify
-    function verifyAndUseNonce(uint256 nonce) external {
-        if (nonce != _nonces[msg.sender]) {
-            revert InvalidNonce(_nonces[msg.sender], nonce);
-        }
-
-        _nonces[msg.sender] = nonce + 1;
+    /// @return nonce The nonce just used
+    function useNonce() external returns (uint256 nonce) {
+        nonce = nonces[msg.sender]++;
         emit NonceUsed(msg.sender, nonce);
     }
 }
