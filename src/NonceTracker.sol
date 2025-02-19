@@ -31,8 +31,9 @@ contract NonceTracker {
     ///
     /// @param nonce The nonce to verify
     function verifyAndUseNonce(uint256 nonce) external {
-        if (nonce != _nonces[msg.sender])
+        if (nonce != _nonces[msg.sender]) {
             revert InvalidNonce(_nonces[msg.sender], nonce);
+        }
 
         _nonces[msg.sender] = nonce + 1;
         emit NonceUsed(msg.sender, nonce);

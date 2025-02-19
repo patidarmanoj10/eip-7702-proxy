@@ -17,7 +17,7 @@ import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
  * 2. For Odyssey testnet: Must have DEPLOYER_PRIVATE_KEY and EOA_PRIVATE_KEY env vars set
  *
  * Running instructions:
- * 
+ *
  * Local testing:
  * 1. Start an Anvil node with EIP-7702 support:
  *    ```bash
@@ -45,7 +45,7 @@ import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
  * 3. Generate the required authorization signature
  * 4. Send this signed auth object to upgrade the EOA
  * 5. Verify the upgrade by checking the code at the EOA address
-
+ *
  * NOTE: In theory there is no reason the initialization and auth steps need to be separate -- we could be making the call to initialize() in the same transaction as the auth signature
  * instead of performing no work and sending 0 value. However, I've been unable to get the call to initialize() to succeed when passed via cast, which is also very difficult to debug,
  * so for now we're doing it in two separate steps.
@@ -56,10 +56,8 @@ contract UpgradeEOA is Script {
 
     // Anvil's default funded accounts (for local testing)
     address constant _ANVIL_EOA = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
-    uint256 constant _ANVIL_EOA_PK =
-        0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
-    uint256 constant _ANVIL_DEPLOYER_PK =
-        0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6;
+    uint256 constant _ANVIL_EOA_PK = 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
+    uint256 constant _ANVIL_DEPLOYER_PK = 0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6;
 
     // Chain IDs
     uint256 constant _ANVIL_CHAIN_ID = 31337;
@@ -90,9 +88,7 @@ contract UpgradeEOA is Script {
 
         // Check if EOA is already upgraded
         if (address(eoa).code.length > 0) {
-            console.log(
-                "[SKIP] EOA already has code deployed, skipping upgrade"
-            );
+            console.log("[SKIP] EOA already has code deployed, skipping upgrade");
             return;
         }
 
@@ -108,19 +104,13 @@ contract UpgradeEOA is Script {
         // 2. Deploy proxy contract with create2 for deterministic address
         bytes4 initSelector = CoinbaseSmartWallet.initialize.selector;
         bytes32 salt = bytes32(0); // We can use 0 as salt since we only need one deployment
-        proxy = new EIP7702Proxy{salt: salt}(
-            address(implementation),
-            initSelector,
-            nonceTracker
-        );
+        proxy = new EIP7702Proxy{salt: salt}(address(implementation), initSelector, nonceTracker);
         console.log("Proxy deployed at:", address(proxy));
 
         vm.stopBroadcast();
 
         // Get the current nonce for the EOA
-        string memory rpcUrl = block.chainid == _ANVIL_CHAIN_ID
-            ? "http://localhost:8545"
-            : "https://odyssey.ithaca.xyz";
+        string memory rpcUrl = block.chainid == _ANVIL_CHAIN_ID ? "http://localhost:8545" : "https://odyssey.ithaca.xyz";
 
         string[] memory nonceInputs = new string[](5);
         nonceInputs[0] = "cast";
@@ -152,11 +142,8 @@ contract UpgradeEOA is Script {
         authInputs[8] = "--rpc-url";
         authInputs[9] = rpcUrl;
 
-        console.log(
-            "Executing sign-auth command with next nonce:",
-            eoaNonce + 1
-        );
-        for (uint i = 0; i < authInputs.length; i++) {
+        console.log("Executing sign-auth command with next nonce:", eoaNonce + 1);
+        for (uint256 i = 0; i < authInputs.length; i++) {
             console.log(authInputs[i]);
         }
 
@@ -180,7 +167,7 @@ contract UpgradeEOA is Script {
         sendInputs[12] = rpcUrl;
 
         console.log("Executing auth transaction with current nonce:", eoaNonce);
-        for (uint i = 0; i < sendInputs.length; i++) {
+        for (uint256 i = 0; i < sendInputs.length; i++) {
             console.log(sendInputs[i]);
         }
 
@@ -200,9 +187,7 @@ contract UpgradeEOA is Script {
         console.log(vm.toString(code));
 
         if (code.length > 0) {
-            console.log(
-                "[OK] Success: EOA has been upgraded to a smart contract!"
-            );
+            console.log("[OK] Success: EOA has been upgraded to a smart contract!");
         } else {
             console.log("[ERROR] Error: EOA code is still empty!");
         }

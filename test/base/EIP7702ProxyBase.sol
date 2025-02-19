@@ -15,8 +15,7 @@ import {MockImplementation} from "../mocks/MockImplementation.sol";
  */
 abstract contract EIP7702ProxyBase is Test {
     /// @dev Storage slot with the address of the current implementation (ERC1967)
-    bytes32 internal constant IMPLEMENTATION_SLOT =
-        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+    bytes32 internal constant IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
     /// @dev Test account private keys and addresses
     uint256 internal constant _EOA_PRIVATE_KEY = 0xA11CE;
@@ -44,11 +43,7 @@ abstract contract EIP7702ProxyBase is Test {
         _initSelector = MockImplementation.initialize.selector;
 
         // Deploy proxy normally first to get the correct immutable values
-        _proxy = new EIP7702Proxy(
-            address(_implementation),
-            _initSelector,
-            _nonceTracker
-        );
+        _proxy = new EIP7702Proxy(address(_implementation), _initSelector, _nonceTracker);
 
         // Get the proxy's runtime code
         bytes memory proxyCode = address(_proxy).code;
@@ -63,17 +58,10 @@ abstract contract EIP7702ProxyBase is Test {
      * @param initArgs Initialization arguments to sign
      * @return Signature bytes
      */
-    function _signInitData(
-        uint256 signerPk,
-        bytes memory initArgs
-    ) internal view returns (bytes memory) {
-        bytes32 INIT_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialization(address proxy,bytes32 args,uint256 nonce)"
-        );
+    function _signInitData(uint256 signerPk, bytes memory initArgs) internal view returns (bytes memory) {
+        bytes32 INIT_TYPEHASH = keccak256("EIP7702ProxyInitialization(address proxy,bytes32 args,uint256 nonce)");
         uint256 nonce = _nonceTracker.getNextNonce(address(_eoa));
-        bytes32 initHash = keccak256(
-            abi.encode(INIT_TYPEHASH, _proxy, keccak256(initArgs), nonce)
-        );
+        bytes32 initHash = keccak256(abi.encode(INIT_TYPEHASH, _proxy, keccak256(initArgs), nonce));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
         return abi.encodePacked(r, s, v);
     }
@@ -83,9 +71,7 @@ abstract contract EIP7702ProxyBase is Test {
      * @param owner Address to set as owner
      * @return Encoded initialization arguments
      */
-    function _createInitArgs(
-        address owner
-    ) internal pure returns (bytes memory) {
+    function _createInitArgs(address owner) internal pure returns (bytes memory) {
         return abi.encode(owner);
     }
 
@@ -94,9 +80,7 @@ abstract contract EIP7702ProxyBase is Test {
      * @param proxy Address of the proxy contract to read from
      * @return The implementation address stored in the ERC1967 slot
      */
-    function _getERC1967Implementation(
-        address proxy
-    ) internal view returns (address) {
+    function _getERC1967Implementation(address proxy) internal view returns (address) {
         return address(uint160(uint256(vm.load(proxy, IMPLEMENTATION_SLOT))));
     }
 

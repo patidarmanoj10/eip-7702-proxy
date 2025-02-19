@@ -50,28 +50,21 @@ contract MockImplementation is UUPSUpgradeable {
         emit MockFunctionCalled();
     }
 
-    function isValidSignature(
-        bytes32,
-        bytes calldata
-    ) external pure virtual returns (bytes4) {
+    function isValidSignature(bytes32, bytes calldata) external pure virtual returns (bytes4) {
         return ERC1271_MAGIC_VALUE;
     }
 
     /**
      * @dev Implementation of UUPS upgrade authorization
      */
-    function _authorizeUpgrade(
-        address
-    ) internal view virtual override onlyOwner {}
+    function _authorizeUpgrade(address) internal view virtual override onlyOwner {}
 
     /**
      * @dev Mock function that returns arbitrary bytes data
      * @param data The data to return
      * @return The input data (to verify delegation preserves data)
      */
-    function returnBytesData(
-        bytes memory data
-    ) public pure returns (bytes memory) {
+    function returnBytesData(bytes memory data) public pure returns (bytes memory) {
         return data;
     }
 
@@ -89,10 +82,7 @@ contract MockImplementation is UUPSUpgradeable {
  */
 contract FailingSignatureImplementation is MockImplementation {
     /// @dev Always returns failure for signature validation
-    function isValidSignature(
-        bytes32,
-        bytes calldata
-    ) external pure override returns (bytes4) {
+    function isValidSignature(bytes32, bytes calldata) external pure override returns (bytes4) {
         return 0xffffffff;
     }
 }
@@ -103,10 +93,7 @@ contract FailingSignatureImplementation is MockImplementation {
  */
 contract RevertingIsValidSignatureImplementation is MockImplementation {
     /// @dev Always reverts during signature validation
-    function isValidSignature(
-        bytes32,
-        bytes calldata
-    ) external pure override returns (bytes4) {
+    function isValidSignature(bytes32, bytes calldata) external pure override returns (bytes4) {
         revert("SignatureValidationFailed");
     }
 }
@@ -126,13 +113,9 @@ contract RevertingInitializerMockImplementation is MockImplementation {
  * @dev Mock implementation that returns ERC1271_MAGIC_VALUE with extra data
  */
 contract MockImplementationWithExtraData is MockImplementation {
-    function isValidSignature(
-        bytes32,
-        bytes memory
-    ) public pure override returns (bytes4) {
+    function isValidSignature(bytes32, bytes memory) public pure override returns (bytes4) {
         // Return magic value (0x1626ba7e) followed by extra data
-        bytes32 returnValue = bytes32(bytes4(ERC1271_MAGIC_VALUE)) |
-            bytes32(uint256(0xdeadbeef) << 32);
+        bytes32 returnValue = bytes32(bytes4(ERC1271_MAGIC_VALUE)) | bytes32(uint256(0xdeadbeef) << 32);
         assembly {
             // Need assembly to return more than 4 bytes from a function declared to return bytes4
             mstore(0x00, returnValue)
