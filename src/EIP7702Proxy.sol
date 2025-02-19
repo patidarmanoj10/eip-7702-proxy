@@ -21,12 +21,15 @@ contract EIP7702Proxy is Proxy {
 
     /// @notice Typehash for initialization signatures
     bytes32 internal constant _INITIALIZATION_TYPEHASH =
-        keccak256("EIP7702ProxyInitialization(uint256 chainId,address proxy,uint256 nonce,bytes args)");
+        keccak256(
+            "EIP7702ProxyInitialization(uint256 chainId,address proxy,uint256 nonce,bytes args)"
+        );
 
     /// @notice Typehash for resetting implementation, including chainId and current implementation
-    bytes32 internal constant _IMPLEMENTATION_RESET_TYPEHASH = keccak256(
-        "EIP7702ProxyImplementationReset(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation)"
-    );
+    bytes32 internal constant _IMPLEMENTATION_RESET_TYPEHASH =
+        keccak256(
+            "EIP7702ProxyImplementationReset(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation)"
+        );
 
     /// @notice Initial implementation address set during construction
     address public immutable INITIAL_IMPLEMENTATION;
@@ -54,10 +57,16 @@ contract EIP7702Proxy is Proxy {
     /// @param implementation The initial implementation address
     /// @param initializer The selector of the initializer function on `implementation` to guard
     /// @param nonceTracker The address of the nonce tracker contract
-    constructor(address implementation, bytes4 initializer, NonceTracker nonceTracker) {
-        if (implementation == address(0)) revert ZeroValueConstructorArguments();
+    constructor(
+        address implementation,
+        bytes4 initializer,
+        NonceTracker nonceTracker
+    ) {
+        if (implementation == address(0))
+            revert ZeroValueConstructorArguments();
         if (initializer == bytes4(0)) revert ZeroValueConstructorArguments();
-        if (address(nonceTracker) == address(0)) revert ZeroValueConstructorArguments();
+        if (address(nonceTracker) == address(0))
+            revert ZeroValueConstructorArguments();
 
         INITIAL_IMPLEMENTATION = implementation;
         GUARDED_INITIALIZER = initializer;
@@ -75,7 +84,11 @@ contract EIP7702Proxy is Proxy {
     /// @param args The initialization arguments for the implementation
     /// @param signature The signature authorizing initialization
     /// @param crossChainReplayable use a chain-agnostic or chain-specific hash
-    function initialize(bytes calldata args, bytes calldata signature, bool crossChainReplayable) external {
+    function initialize(
+        bytes calldata args,
+        bytes calldata signature,
+        bool crossChainReplayable
+    ) external {
         // Construct hash using typehash to prevent signature collisions
         bytes32 initHash = keccak256(
             abi.encode(
@@ -92,7 +105,10 @@ contract EIP7702Proxy is Proxy {
         if (signer != address(this)) revert InvalidSignature();
 
         // Initialize the implementation
-        ERC1967Utils.upgradeToAndCall(INITIAL_IMPLEMENTATION, abi.encodePacked(GUARDED_INITIALIZER, args));
+        ERC1967Utils.upgradeToAndCall(
+            INITIAL_IMPLEMENTATION,
+            abi.encodePacked(GUARDED_INITIALIZER, args)
+        );
     }
 
     /// @notice Resets the ERC-1967 implementation slot after signature verification, allowing the account to
@@ -103,9 +119,11 @@ contract EIP7702Proxy is Proxy {
     /// @param newImplementation The implementation address to set
     /// @param signature The EOA signature authorizing this change
     /// @param crossChainReplayable use a chain-agnostic or chain-specific hash
-    function resetImplementation(address newImplementation, bytes calldata signature, bool crossChainReplayable)
-        external
-    {
+    function resetImplementation(
+        address newImplementation,
+        bytes calldata signature,
+        bool crossChainReplayable
+    ) external {
         // Construct hash using typehash to prevent signature collisions
         bytes32 resetHash = keccak256(
             abi.encode(
@@ -137,17 +155,29 @@ contract EIP7702Proxy is Proxy {
     /// @param signature The signature of the message
     ///
     /// @return The result of the `isValidSignature` check
-    function isValidSignature(bytes32 hash, bytes calldata signature) external returns (bytes4) {
+    function isValidSignature(
+        bytes32 hash,
+        bytes calldata signature
+    ) external returns (bytes4) {
         // First try delegatecall to implementation
-        (bool success, bytes memory result) = _implementation().delegatecall(msg.data);
+        (bool success, bytes memory result) = _implementation().delegatecall(
+            msg.data
+        );
 
         // If delegatecall succeeded and returned magic value, return that
-        if (success && result.length == 32 && bytes4(result) == _ERC1271_MAGIC_VALUE) {
+        if (
+            success &&
+            result.length == 32 &&
+            bytes4(result) == _ERC1271_MAGIC_VALUE
+        ) {
             return _ERC1271_MAGIC_VALUE;
         }
 
         // Only return success if there was no error and the signer matches
-        (address recovered, ECDSA.RecoverError error,) = ECDSA.tryRecover(hash, signature);
+        (address recovered, ECDSA.RecoverError error, ) = ECDSA.tryRecover(
+            hash,
+            signature
+        );
         if (error == ECDSA.RecoverError.NoError && recovered == address(this)) {
             return _ERC1271_MAGIC_VALUE;
         }
@@ -161,7 +191,10 @@ contract EIP7702Proxy is Proxy {
     /// @return implementation The implementation address for this EOA
     function _implementation() internal view override returns (address) {
         address implementation = ERC1967Utils.getImplementation();
-        return implementation == address(0) ? INITIAL_IMPLEMENTATION : implementation;
+        return
+            implementation == address(0)
+                ? INITIAL_IMPLEMENTATION
+                : implementation;
     }
 
     /// @inheritdoc Proxy

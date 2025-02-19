@@ -13,28 +13,29 @@ import {MockImplementation} from "../mocks/MockImplementation.sol";
 
 contract ResetImplementationTest is EIP7702ProxyBase {
     MockImplementation newImplementation;
-    bytes32 private constant RESET_IMPLEMENTATION_TYPEHASH = keccak256(
-        "EIP7702ProxyImplementationReset(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation)"
-    );
+    bytes32 private constant _IMPLEMENTATION_RESET_TYPEHASH =
+        keccak256(
+            "EIP7702ProxyImplementationReset(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation)"
+        );
 
     function setUp() public override {
         super.setUp();
         newImplementation = new MockImplementation();
     }
 
-    function _signResetData(uint256 signerPk, address newImplementationAddress, uint256 chainId)
-        internal
-        view
-        returns (bytes memory)
-    {
+    function _signResetData(
+        uint256 signerPk,
+        address newImplementationAddress,
+        uint256 chainId
+    ) internal view returns (bytes memory) {
         bytes32 resetHash = keccak256(
             abi.encode(
-                RESET_IMPLEMENTATION_TYPEHASH,
-                _proxy,
-                _getERC1967Implementation(_eoa),
-                newImplementationAddress,
+                _IMPLEMENTATION_RESET_TYPEHASH,
                 chainId == 0 ? 0 : block.chainid,
-                _nonceTracker.getNextNonce(_eoa)
+                _proxy,
+                _nonceTracker.nonces(_eoa),
+                _getERC1967Implementation(_eoa),
+                newImplementationAddress
             )
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, resetHash);
@@ -43,14 +44,22 @@ contract ResetImplementationTest is EIP7702ProxyBase {
 
     function test_emitsUpgradedEvent() public {
         // Get signature for reset
-        bytes memory signature = _signResetData(_EOA_PRIVATE_KEY, address(newImplementation), block.chainid);
+        bytes memory signature = _signResetData(
+            _EOA_PRIVATE_KEY,
+            address(newImplementation),
+            block.chainid
+        );
 
         // Expect the Upgraded event
         vm.expectEmit(true, false, false, false, address(_eoa));
         emit IERC1967.Upgraded(address(newImplementation));
 
         // Reset implementation
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
     }
 
     function test_succeeds_withChainIdZero() public {
@@ -62,21 +71,37 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         );
 
         // Reset implementation
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, 0);
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            true
+        );
 
         assertEq(
-            _getERC1967Implementation(_eoa), address(newImplementation), "Implementation should be set to new address"
+            _getERC1967Implementation(_eoa),
+            address(newImplementation),
+            "Implementation should be set to new address"
         );
     }
 
     function test_succeeds_withNonzeroChainId() public {
         // Get signature for reset with chainId 0 (cross-chain)
-        bytes memory signature = _signResetData(_EOA_PRIVATE_KEY, address(newImplementation), block.chainid);
+        bytes memory signature = _signResetData(
+            _EOA_PRIVATE_KEY,
+            address(newImplementation),
+            block.chainid
+        );
 
         // Reset implementation
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
         assertEq(
-            _getERC1967Implementation(_eoa), address(newImplementation), "Implementation should be set to new address"
+            _getERC1967Implementation(_eoa),
+            address(newImplementation),
+            "Implementation should be set to new address"
         );
     }
 
@@ -84,12 +109,27 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         vm.assume(wrongChainId != block.chainid);
         vm.assume(wrongChainId != 0);
 
-        // Get signature for reset with current chain ID
-        bytes memory signature = _signResetData(_EOA_PRIVATE_KEY, address(newImplementation), block.chainid);
+        // Get signature for reset with wrong chain ID
+        bytes32 resetHash = keccak256(
+            abi.encode(
+                _IMPLEMENTATION_RESET_TYPEHASH,
+                wrongChainId,
+                _proxy,
+                _nonceTracker.nonces(_eoa),
+                _getERC1967Implementation(_eoa),
+                address(newImplementation)
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, resetHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
 
         // Try to use with wrong chain ID
-        vm.expectRevert(EIP7702Proxy.InvalidChainId.selector);
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, wrongChainId);
+        vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
     }
 
     function test_succeeds_whenImplementationSlotEmpty() public {
@@ -97,13 +137,25 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         vm.store(_eoa, ERC1967Utils.IMPLEMENTATION_SLOT, bytes32(0));
 
         // Verify slot is empty
-        assertEq(_getERC1967Implementation(address(_eoa)), address(0), "Implementation slot should be empty initially");
+        assertEq(
+            _getERC1967Implementation(address(_eoa)),
+            address(0),
+            "Implementation slot should be empty initially"
+        );
 
         // Get signature for reset
-        bytes memory signature = _signResetData(_EOA_PRIVATE_KEY, address(newImplementation), block.chainid);
+        bytes memory signature = _signResetData(
+            _EOA_PRIVATE_KEY,
+            address(newImplementation),
+            block.chainid
+        );
 
         // Reset implementation
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
 
         // Verify implementation was set
         assertEq(
@@ -113,7 +165,9 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         );
     }
 
-    function test_succeeds_whenImplementationSlotHasForeignAddress(address foreignImpl) public {
+    function test_succeeds_whenImplementationSlotHasForeignAddress(
+        address foreignImpl
+    ) public {
         // Deploy another implementation to use as foreign implementation
         MockImplementation foreignImplementation = new MockImplementation();
 
@@ -123,7 +177,11 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         assumeNotPrecompile(foreignImpl);
 
         // Set implementation slot to foreign implementation
-        vm.store(_eoa, ERC1967Utils.IMPLEMENTATION_SLOT, bytes32(uint256(uint160(address(foreignImplementation)))));
+        vm.store(
+            _eoa,
+            ERC1967Utils.IMPLEMENTATION_SLOT,
+            bytes32(uint256(uint160(address(foreignImplementation))))
+        );
 
         // Verify slot was set
         assertEq(
@@ -133,21 +191,39 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         );
 
         // Get signature for reset
-        bytes memory signature = _signResetData(_EOA_PRIVATE_KEY, address(newImplementation), block.chainid);
+        bytes memory signature = _signResetData(
+            _EOA_PRIVATE_KEY,
+            address(newImplementation),
+            block.chainid
+        );
 
         // Reset implementation
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
 
         // Verify implementation was changed
         assertEq(
-            _getERC1967Implementation(_eoa), address(newImplementation), "Implementation should be set to new address"
+            _getERC1967Implementation(_eoa),
+            address(newImplementation),
+            "Implementation should be set to new address"
         );
     }
 
     function test_succeeds_whenResettingToSameImplementation() public {
         // First set implementation to newImplementation
-        bytes memory signature = _signResetData(_EOA_PRIVATE_KEY, address(newImplementation), block.chainid);
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        bytes memory signature = _signResetData(
+            _EOA_PRIVATE_KEY,
+            address(newImplementation),
+            block.chainid
+        );
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
 
         // Verify first reset was successful
         assertEq(
@@ -157,14 +233,24 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         );
 
         // Get new signature for resetting to same implementation
-        signature = _signResetData(_EOA_PRIVATE_KEY, address(newImplementation), block.chainid);
+        signature = _signResetData(
+            _EOA_PRIVATE_KEY,
+            address(newImplementation),
+            block.chainid
+        );
 
         // Reset to same implementation
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
 
         // Verify implementation remains unchanged
         assertEq(
-            _getERC1967Implementation(_eoa), address(newImplementation), "Implementation should remain same address"
+            _getERC1967Implementation(_eoa),
+            address(newImplementation),
+            "Implementation should remain same address"
         );
     }
 
@@ -172,19 +258,29 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         // Limit number of resets to avoid excessive gas usage
         vm.assume(numResets > 0 && numResets < 10);
 
-        uint256 initialNonce = _nonceTracker.getNextNonce(_eoa);
+        uint256 initialNonce = _nonceTracker.nonces(_eoa);
 
         for (uint8 i = 0; i < numResets; i++) {
             // Deploy a new implementation for each reset
             MockImplementation nextImplementation = new MockImplementation();
 
             // Perform reset
-            bytes memory signature = _signResetData(_EOA_PRIVATE_KEY, address(nextImplementation), block.chainid);
-            EIP7702Proxy(_eoa).resetImplementation(address(nextImplementation), signature, block.chainid);
+            bytes memory signature = _signResetData(
+                _EOA_PRIVATE_KEY,
+                address(nextImplementation),
+                block.chainid
+            );
+            EIP7702Proxy(_eoa).resetImplementation(
+                address(nextImplementation),
+                signature,
+                false
+            );
 
             // Verify nonce incremented correctly
             assertEq(
-                _nonceTracker.getNextNonce(_eoa), initialNonce + i + 1, "Nonce should increment by one after each reset"
+                _nonceTracker.nonces(_eoa),
+                initialNonce + i + 1,
+                "Nonce should increment by one after each reset"
             );
         }
     }
@@ -192,8 +288,14 @@ contract ResetImplementationTest is EIP7702ProxyBase {
     function test_reverts_whenSignatureEmpty() public {
         bytes memory signature = new bytes(0);
 
-        vm.expectRevert(abi.encodeWithSignature("ECDSAInvalidSignatureLength(uint256)", 0));
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        vm.expectRevert(
+            abi.encodeWithSignature("ECDSAInvalidSignatureLength(uint256)", 0)
+        );
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
     }
 
     function test_reverts_whenSignatureLengthInvalid(uint8 length) public {
@@ -205,11 +307,24 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         // Create signature of invalid length
         bytes memory signature = new bytes(length);
 
-        vm.expectRevert(abi.encodeWithSignature("ECDSAInvalidSignatureLength(uint256)", length));
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "ECDSAInvalidSignatureLength(uint256)",
+                length
+            )
+        );
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
     }
 
-    function test_reverts_whenSignatureInvalid(bytes32 r, bytes32 s, uint8 v) public {
+    function test_reverts_whenSignatureInvalid(
+        bytes32 r,
+        bytes32 s,
+        uint8 v
+    ) public {
         // Create 65-byte signature from random components
         // Exclude v = 27 or 28 as those are valid v values in ECDSA
         vm.assume(v != 27 && v != 28);
@@ -221,7 +336,11 @@ contract ResetImplementationTest is EIP7702ProxyBase {
 
         // Any of these errors could occur for invalid signatures
         vm.expectRevert(); // Just check that it reverts, don't check specific error
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
     }
 
     function test_reverts_whenSignerWrong(uint128 wrongPk) public {
@@ -230,17 +349,26 @@ contract ResetImplementationTest is EIP7702ProxyBase {
 
         bytes32 resetHash = keccak256(
             abi.encode(
-                RESET_IMPLEMENTATION_TYPEHASH, _eoa, address(newImplementation), _nonceTracker.getNextNonce(_eoa)
+                _IMPLEMENTATION_RESET_TYPEHASH,
+                _eoa,
+                address(newImplementation),
+                _nonceTracker.nonces(_eoa)
             )
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongPk, resetHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
     }
 
-    function test_resetImplementation_reverts_whenSignatureReplayedWithDifferentProxy(uint128 secondProxyPk) public {
+    function test_resetImplementation_reverts_whenSignatureReplayedWithDifferentProxy(
+        uint128 secondProxyPk
+    ) public {
         vm.assume(secondProxyPk != 0);
         vm.assume(secondProxyPk != uint128(_EOA_PRIVATE_KEY));
 
@@ -253,67 +381,106 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(secondProxy, proxyCode);
         bytes memory initArgs = _createInitArgs(_newOwner);
-        bytes32 INIT_TYPEHASH =
-            keccak256("EIP7702ProxyInitialization(uint256 chainId,address proxy,bytes32 args,uint256 nonce)");
+        bytes32 _INITIALIZATION_TYPEHASH = keccak256(
+            "EIP7702ProxyInitialization(uint256 chainId,address proxy,uint256 nonce,bytes args)"
+        );
         bytes32 initHash = keccak256(
             abi.encode(
-                INIT_TYPEHASH,
+                _INITIALIZATION_TYPEHASH,
                 0,
                 _proxy,
-                keccak256(initArgs),
-                _nonceTracker.getNextNonce(secondProxy) // can't use util signature function because we need to use the second proxy's nonce
+                _nonceTracker.nonces(secondProxy),
+                keccak256(initArgs)
             )
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(secondProxyPk, initHash);
         bytes memory initSignature = abi.encodePacked(r, s, v);
-        EIP7702Proxy(secondProxy).initialize(initArgs, initSignature, 0);
+        EIP7702Proxy(secondProxy).initialize(initArgs, initSignature, true);
 
         // Get signature for first proxy
-        bytes memory signature = _signResetData(_EOA_PRIVATE_KEY, address(newImplementation), block.chainid);
+        bytes memory signature = _signResetData(
+            _EOA_PRIVATE_KEY,
+            address(newImplementation),
+            block.chainid
+        );
 
         // Try to use same signature with different proxy
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
-        EIP7702Proxy(secondProxy).resetImplementation(address(newImplementation), signature, block.chainid);
+        EIP7702Proxy(secondProxy).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
     }
 
-    function test_reverts_whenSignatureReplayedWithDifferentImplementation(address differentImpl) public {
+    function test_reverts_whenSignatureReplayedWithDifferentImplementation(
+        address differentImpl
+    ) public {
         vm.assume(differentImpl != address(0));
         vm.assume(differentImpl != address(newImplementation));
         assumeNotPrecompile(differentImpl);
 
         // Get signature for first implementation
-        bytes memory signature = _signResetData(_EOA_PRIVATE_KEY, address(newImplementation), block.chainid);
+        bytes memory signature = _signResetData(
+            _EOA_PRIVATE_KEY,
+            address(newImplementation),
+            block.chainid
+        );
 
         // Try to use same signature with different implementation
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
-        EIP7702Proxy(_eoa).resetImplementation(differentImpl, signature, block.chainid);
+        EIP7702Proxy(_eoa).resetImplementation(differentImpl, signature, false);
     }
 
-    function test_reverts_whenSignatureUsesWrongNonce(uint256 wrongNonce) public {
+    function test_reverts_whenSignatureUsesWrongNonce(
+        uint256 wrongNonce
+    ) public {
         // Get current nonce
-        uint256 currentNonce = _nonceTracker.getNextNonce(_eoa);
+        uint256 currentNonce = _nonceTracker.nonces(_eoa);
 
         // Exclude the current valid nonce
         vm.assume(wrongNonce != currentNonce);
 
         // Create signature with wrong nonce
-        bytes32 resetHash =
-            keccak256(abi.encode(RESET_IMPLEMENTATION_TYPEHASH, _proxy, address(newImplementation), wrongNonce));
+        bytes32 resetHash = keccak256(
+            abi.encode(
+                _IMPLEMENTATION_RESET_TYPEHASH,
+                _proxy,
+                address(newImplementation),
+                wrongNonce
+            )
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, resetHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
     }
 
     function test_reverts_whenSignatureReplayedWithSameNonce() public {
         // First reset
-        bytes memory signature = _signResetData(_EOA_PRIVATE_KEY, address(newImplementation), block.chainid);
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        bytes memory signature = _signResetData(
+            _EOA_PRIVATE_KEY,
+            address(newImplementation),
+            block.chainid
+        );
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
 
         // Try to replay the same signature
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
     }
 
     function test_reverts_whenSignatureUsesWrongCurrentImplementation() public {
@@ -321,12 +488,12 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         MockImplementation wrongCurrentImpl = new MockImplementation();
 
         // Get expected nonce
-        uint256 expectedNonce = _nonceTracker.getNextNonce(_eoa);
+        uint256 expectedNonce = _nonceTracker.nonces(_eoa);
 
         // Create signature with wrong current implementation
         bytes32 resetHash = keccak256(
             abi.encode(
-                RESET_IMPLEMENTATION_TYPEHASH,
+                _IMPLEMENTATION_RESET_TYPEHASH,
                 _proxy,
                 address(wrongCurrentImpl), // Use wrong implementation in signature
                 address(newImplementation),
@@ -339,6 +506,10 @@ contract ResetImplementationTest is EIP7702ProxyBase {
 
         // Try to use signature with wrong current implementation
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
-        EIP7702Proxy(_eoa).resetImplementation(address(newImplementation), signature, block.chainid);
+        EIP7702Proxy(_eoa).resetImplementation(
+            address(newImplementation),
+            signature,
+            false
+        );
     }
 }
