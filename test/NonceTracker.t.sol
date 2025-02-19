@@ -87,48 +87,4 @@ contract NonceTrackerTest is Test {
             "Other account's nonce should be independent"
         );
     }
-
-    // function test_verifyAndUseNonce_reverts_whenReusingNonce() public {
-    //     uint256 nonce = nonceTracker.nonces(account);
-
-    //     // Use nonce first time
-    //     vm.prank(account);
-    //     nonceTracker.useNonce();
-
-    //     // Try to reuse same nonce
-    //     vm.prank(account);
-    //     vm.expectRevert(
-    //         abi.encodeWithSelector(
-    //             NonceTracker.InvalidNonce.selector,
-    //             nonce + 1,
-    //             nonce
-    //         )
-    //     );
-    //     nonceTracker.useNonce();
-    // }
-
-    // function test_verifyAndUseNonce_reverts_whenCallerNotAccount(
-    //     address caller
-    // ) public {
-    //     vm.assume(caller != account);
-
-    //     // Get nonces for both accounts
-    //     uint256 accountNonce = nonceTracker.nonces(account);
-    //     uint256 callerNonce = nonceTracker.nonces(caller);
-
-    //     // Use caller's nonce to make sure it's different from account's
-    //     vm.prank(caller);
-    //     nonceTracker.useNonce();
-
-    //     // Try to use account's nonce from a different address
-    //     vm.prank(caller);
-    //     vm.expectRevert(
-    //         abi.encodeWithSelector(
-    //             NonceTracker.InvalidNonce.selector,
-    //             callerNonce + 1, // expected nonce has incremented
-    //             accountNonce // actual nonce
-    //         )
-    //     );
-    //     nonceTracker.useNonce();
-    // }
 }
