@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.23;
 
-import {NonceTracker} from "./NonceTracker.sol";
-
 import {Proxy} from "openzeppelin-contracts/contracts/proxy/Proxy.sol";
 import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {StorageSlot} from "openzeppelin-contracts/contracts/utils/StorageSlot.sol";
+
+import {NonceTracker} from "./NonceTracker.sol";
 
 /// @title EIP7702Proxy
 ///
@@ -84,6 +84,9 @@ contract EIP7702Proxy is Proxy {
         NONCE_TRACKER = _nonceTracker;
     }
 
+    /// @notice Allow the account to receive ETH under any circumstances
+    receive() external payable {}
+
     /// @notice Initializes the proxy and implementation with a signed payload
     ///
     /// @dev Signature must be from this contract's address
@@ -158,28 +161,6 @@ contract EIP7702Proxy is Proxy {
         return ERC1271_FAIL_VALUE;
     }
 
-    /// @inheritdoc Proxy
-    /// @dev Handles ERC-1271 signature validation by enforcing an ecrecover check if signatures fail `isValidSignature` check
-    /// @dev Guards a specified initializer function from being called directly
-    function _fallback() internal override {
-        // block guarded initializer from being called
-        if (msg.sig == GUARDED_INITIALIZER) revert InvalidInitializer();
-
-        _delegate(_implementation());
-    }
-
-    /// @notice Returns the implementation address, falling back to the initial implementation if the ERC-1967 implementation slot is not set
-    ///
-    /// @return The implementation address
-    function _implementation() internal view override returns (address) {
-        if (ERC1967Utils.getImplementation() == address(0))
-            return INITIAL_IMPLEMENTATION;
-        return ERC1967Utils.getImplementation();
-    }
-
-    /// @notice Allow the account to receive ETH under any circumstances
-    receive() external payable {}
-
     /// @notice Resets the ERC-1967 implementation slot after signature verification, allowing the account to
     ///         correct the implementation address if it's ever changed by an unknown delegate or implementation.
     ///
@@ -226,5 +207,24 @@ contract EIP7702Proxy is Proxy {
 
         // Reset the implementation slot
         ERC1967Utils.upgradeToAndCall(newImplementation, "");
+    }
+
+    /// @notice Returns the implementation address, falling back to the initial implementation if the ERC-1967 implementation slot is not set
+    ///
+    /// @return The implementation address
+    function _implementation() internal view override returns (address) {
+        address implementation = ERC1967Utils.getImplementation();
+        if (implementation == address(0)) return INITIAL_IMPLEMENTATION;
+        return implementation;
+    }
+
+    /// @inheritdoc Proxy
+    /// @dev Handles ERC-1271 signature validation by enforcing an ecrecover check if signatures fail `isValidSignature` check
+    /// @dev Guards a specified initializer function from being called directly
+    function _fallback() internal override {
+        // block guarded initializer from being called
+        if (msg.sig == GUARDED_INITIALIZER) revert InvalidInitializer();
+
+        _delegate(_implementation());
     }
 }

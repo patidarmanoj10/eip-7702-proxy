@@ -28,11 +28,7 @@ contract NonceTrackerTest is Test {
         uint256 nonce = nonceTracker.getNextNonce(account);
 
         vm.prank(account);
-        assertTrue(
-            nonceTracker.verifyAndUseNonce(nonce),
-            "Should verify and use nonce"
-        );
-
+        nonceTracker.verifyAndUseNonce(nonce);
         assertEq(
             nonceTracker.getNextNonce(account),
             nonce + 1,
@@ -79,10 +75,7 @@ contract NonceTrackerTest is Test {
             );
 
             vm.prank(account);
-            assertTrue(
-                nonceTracker.verifyAndUseNonce(expectedNonce),
-                "Should verify and use nonce"
-            );
+            nonceTracker.verifyAndUseNonce(expectedNonce);
 
             expectedNonce++;
         }
@@ -102,7 +95,7 @@ contract NonceTrackerTest is Test {
         // Use account's nonce
         uint256 accountNonce = nonceTracker.getNextNonce(account);
         vm.prank(account);
-        assertTrue(nonceTracker.verifyAndUseNonce(accountNonce));
+        nonceTracker.verifyAndUseNonce(accountNonce);
 
         // Other account's nonce should still be 0
         assertEq(
@@ -117,7 +110,7 @@ contract NonceTrackerTest is Test {
 
         // Use nonce first time
         vm.prank(account);
-        assertTrue(nonceTracker.verifyAndUseNonce(nonce));
+        nonceTracker.verifyAndUseNonce(nonce);
 
         // Try to reuse same nonce
         vm.prank(account);
@@ -142,10 +135,7 @@ contract NonceTrackerTest is Test {
 
         // Use caller's nonce to make sure it's different from account's
         vm.prank(caller);
-        assertTrue(
-            nonceTracker.verifyAndUseNonce(callerNonce),
-            "Caller should be able to use their own nonce"
-        );
+        nonceTracker.verifyAndUseNonce(callerNonce);
 
         // Try to use account's nonce from a different address
         vm.prank(caller);
