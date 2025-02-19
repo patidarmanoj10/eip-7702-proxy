@@ -375,11 +375,12 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         vm.etch(secondProxy, proxyCode);
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes32 INIT_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialization(address proxy,bytes32 args,uint256 nonce)"
+            "EIP7702ProxyInitialization(uint256 chainId,address proxy,bytes32 args,uint256 nonce)"
         );
         bytes32 initHash = keccak256(
             abi.encode(
                 INIT_TYPEHASH,
+                0,
                 _proxy,
                 keccak256(initArgs),
                 _nonceTracker.getNextNonce(secondProxy) // can't use util signature function because we need to use the second proxy's nonce
@@ -387,7 +388,7 @@ contract ResetImplementationTest is EIP7702ProxyBase {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(secondProxyPk, initHash);
         bytes memory initSignature = abi.encodePacked(r, s, v);
-        EIP7702Proxy(secondProxy).initialize(initArgs, initSignature);
+        EIP7702Proxy(secondProxy).initialize(initArgs, initSignature, 0);
 
         // Get signature for first proxy
         bytes memory signature = _signResetData(

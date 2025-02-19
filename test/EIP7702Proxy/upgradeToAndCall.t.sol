@@ -21,7 +21,7 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
         // Initialize the proxy first
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature);
+        EIP7702Proxy(_eoa).initialize(initArgs, signature, 0);
 
         // Deploy new implementation
         newImplementation = new MockImplementation();
