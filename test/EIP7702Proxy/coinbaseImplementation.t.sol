@@ -149,15 +149,8 @@ contract CoinbaseImplementationTest is Test {
      * @param target The address where the proxy code should be etched
      */
     function _deployProxy(address target) internal {
-        // Deploy proxy normally first to get the correct immutable values
-        EIP7702Proxy newProxy = new EIP7702Proxy(
-            address(implementation),
-            initSelector,
-            nonceTracker
-        );
-
         // Get the proxy's runtime code
-        bytes memory proxyCode = address(newProxy).code;
+        bytes memory proxyCode = address(proxy).code;
 
         // Etch the proxy code at the target address
         vm.etch(target, proxyCode);

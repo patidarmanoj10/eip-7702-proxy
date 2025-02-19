@@ -26,6 +26,12 @@ contract EIP7702Proxy is Proxy {
             "EIP7702ProxyInitialization(address proxy,bytes32 args,uint256 nonce)"
         );
 
+    /// @notice Typehash for resetting implementation, including chainId and current implementation
+    bytes32 private constant RESET_IMPLEMENTATION_TYPEHASH =
+        keccak256(
+            "EIP7702ProxyImplementationReset(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation)"
+        );
+
     /// @notice Address of this proxy contract delegate
     address immutable PROXY;
 
@@ -52,6 +58,9 @@ contract EIP7702Proxy is Proxy {
 
     /// @notice Error when nonce verification fails
     error InvalidNonce(uint256 expected, uint256 actual);
+
+    /// @notice Emitted when the chain ID is invalid
+    error InvalidChainId();
 
     /// @notice Initializes the proxy with an initial implementation and guarded initializer
     ///
@@ -170,4 +179,52 @@ contract EIP7702Proxy is Proxy {
 
     /// @notice Allow the account to receive ETH under any circumstances
     receive() external payable {}
+
+    /// @notice Resets the ERC-1967 implementation slot after signature verification, allowing the account to
+    ///         correct the implementation address if it's ever changed by an unknown delegate or implementation.
+    ///
+    /// @dev Signature must be from the EOA's address that is 7702-delegating to this proxy
+    ///
+    /// @param newImplementation The implementation address to set
+    /// @param signature The EOA signature authorizing this change
+    /// @param chainId Optional: if 0, allows cross-chain signatures
+    function resetImplementation(
+        address newImplementation,
+        bytes calldata signature,
+        uint256 chainId
+    ) external {
+        // Get expected nonce from tracker
+        uint256 expectedNonce = NONCE_TRACKER.getNextNonce(address(this));
+
+        // Get current chain ID and implementation
+        uint256 currentChainId = block.chainid;
+        address currentImplementation = ERC1967Utils.getImplementation();
+
+        // Verify chain ID if specified (revert if non-zero and doesn't match)
+        if (chainId != 0 && chainId != currentChainId) {
+            revert InvalidChainId();
+        }
+
+        // Construct hash using typehash to prevent signature collisions
+        bytes32 resetHash = keccak256(
+            abi.encode(
+                RESET_IMPLEMENTATION_TYPEHASH,
+                PROXY,
+                currentImplementation,
+                newImplementation,
+                chainId == 0 ? 0 : currentChainId,
+                expectedNonce
+            )
+        );
+
+        // Verify signature is from this address (the EOA)
+        address signer = ECDSA.recover(resetHash, signature);
+        if (signer != address(this)) revert InvalidSignature();
+
+        // Verify and consume the nonce, reverts if invalid
+        NONCE_TRACKER.verifyAndUseNonce(expectedNonce);
+
+        // Reset the implementation slot
+        ERC1967Utils.upgradeToAndCall(newImplementation, "");
+    }
 }
