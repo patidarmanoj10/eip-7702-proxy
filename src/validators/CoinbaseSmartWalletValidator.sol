@@ -17,7 +17,7 @@ contract CoinbaseSmartWalletValidator is IWalletValidator {
         MultiOwnable walletContract = MultiOwnable(wallet);
 
         // Ensure at least one owner exists
-        if (walletContract.ownerCount() == 0) {
+        if (walletContract.nextOwnerIndex() == 0) {
             revert Unintialized();
         }
     }
