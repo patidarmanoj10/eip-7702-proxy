@@ -4,11 +4,11 @@ pragma solidity ^0.8.23;
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
 import {NonceTracker} from "../../src/NonceTracker.sol";
 import {DefaultReceiver} from "../../src/DefaultReceiver.sol";
-import {CoinbaseSmartWalletValidator} from "../../src/validators/CoinbaseSmartWalletValidator.sol";
+import {MockValidator} from "../mocks/MockValidator.sol";
 
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-
 import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
 import {MockImplementation} from "../mocks/MockImplementation.sol";
 
 /**
@@ -19,6 +19,11 @@ abstract contract EIP7702ProxyBase is Test {
     /// @dev Storage slot with the address of the current implementation (ERC1967)
     bytes32 internal constant IMPLEMENTATION_SLOT =
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+
+    bytes32 internal constant _IMPLEMENTATION_SET_TYPEHASH =
+        keccak256(
+            "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes32 initData,address validator)"
+        );
 
     /// @dev Test account private keys and addresses
     uint256 internal constant _EOA_PRIVATE_KEY = 0xA11CE;
@@ -32,8 +37,9 @@ abstract contract EIP7702ProxyBase is Test {
     MockImplementation internal _implementation;
     NonceTracker internal _nonceTracker;
     DefaultReceiver internal _receiver;
-    CoinbaseSmartWalletValidator internal _validator;
+    MockValidator internal _validator;
 
+    /// @dev "deploy" the proxy at the EOA but don't initialize
     function setUp() public virtual {
         // Set up test accounts
         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
@@ -43,7 +49,7 @@ abstract contract EIP7702ProxyBase is Test {
         _implementation = new MockImplementation();
         _nonceTracker = new NonceTracker();
         _receiver = new DefaultReceiver();
-        _validator = new CoinbaseSmartWalletValidator();
+        _validator = new MockValidator();
 
         // Deploy proxy with receiver and nonce tracker
         _proxy = new EIP7702Proxy(_nonceTracker, _receiver);
@@ -53,12 +59,18 @@ abstract contract EIP7702ProxyBase is Test {
 
         // Etch the proxy code at the EOA's address to simulate EIP-7702 upgrade
         vm.etch(_eoa, proxyCode);
+    }
 
-        // Initialize the proxy with implementation
+    /// @dev Initialize the proxy with the new owner
+    function _initializeProxy() internal {
         bytes memory initArgs = _createInitArgs(_newOwner);
-        bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
+        bytes memory signature = _signSetImplementationData(
+            _EOA_PRIVATE_KEY,
+            address(_implementation),
+            0, // chainId 0 for cross-chain
+            initArgs
+        );
 
-        // Set implementation and initialize
         EIP7702Proxy(_eoa).setImplementation(
             address(_implementation),
             initArgs,
@@ -71,31 +83,52 @@ abstract contract EIP7702ProxyBase is Test {
     /**
      * @dev Helper to generate initialization signature
      * @param signerPk Private key of the signer
-     * @param initArgs Initialization arguments to sign
+     * @param newImplementationAddress New implementation contract address
+     * @param chainId Chain ID for the signature
+     * @param initData Initialization data for the implementation
      * @return Signature bytes
      */
-    function _signInitData(
+    function _signSetImplementationData(
         uint256 signerPk,
-        bytes memory initArgs
+        address newImplementationAddress,
+        uint256 chainId,
+        bytes memory initData
     ) internal view returns (bytes memory) {
-        /// @notice Typehash for setting implementation
-        bytes32 _IMPLEMENTATION_SET_TYPEHASH = keccak256(
-            "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes32 initData,address validator)"
-        );
-
         uint256 nonce = _nonceTracker.nonces(_eoa);
+        address currentImpl = _getERC1967Implementation(_eoa);
+
+        // Log all values going into the hash
+        console2.log("Test: Signing with values:");
+        console2.log("  chainId:");
+        console2.logUint(0);
+        console2.log("  proxy:");
+        console2.logAddress(address(_proxy));
+        console2.log("  nonce:");
+        console2.logUint(nonce);
+        console2.log("  currentImpl:");
+        console2.logAddress(currentImpl);
+        console2.log("  newImpl:");
+        console2.logAddress(newImplementationAddress);
+        console2.log("  initDataHash:");
+        console2.logBytes32(keccak256(initData));
+        console2.log("  validator:");
+        console2.logAddress(address(_validator));
+
         bytes32 initHash = keccak256(
             abi.encode(
                 _IMPLEMENTATION_SET_TYPEHASH,
-                0, // chainId 0 for cross-chain
+                chainId,
                 _proxy,
                 nonce,
-                address(0), // current implementation is 0
-                address(_implementation),
-                keccak256(initArgs),
+                currentImpl,
+                newImplementationAddress,
+                keccak256(initData),
                 address(_validator)
             )
         );
+
+        console2.log("Test: Hash being signed:", uint256(initHash));
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
         return abi.encodePacked(r, s, v);
     }

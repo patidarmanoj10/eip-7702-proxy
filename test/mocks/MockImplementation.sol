@@ -2,13 +2,12 @@
 pragma solidity ^0.8.23;
 
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
-import {MultiOwnable} from "../../lib/smart-wallet/src/MultiOwnable.sol";
 
 /**
  * @title MockImplementation
  * @dev Base mock implementation for testing EIP7702Proxy
  */
-contract MockImplementation is UUPSUpgradeable, MultiOwnable {
+contract MockImplementation is UUPSUpgradeable {
     bytes4 constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
 
     address public owner;
@@ -18,11 +17,11 @@ contract MockImplementation is UUPSUpgradeable, MultiOwnable {
     event Initialized(address owner);
     event MockFunctionCalled();
 
+    error Unauthorized();
     error AlreadyInitialized();
-    error MockRevert();
 
     /// @dev Modifier to restrict access to owner
-    modifier onlyOwner() override {
+    modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
         _;
     }
@@ -36,46 +35,36 @@ contract MockImplementation is UUPSUpgradeable, MultiOwnable {
 
     /**
      * @dev Initializes the contract with an owner
-     * @param owners Addresses to set as owners
+     * @param _owner Address to set as owner
      */
-    function initialize(bytes[] calldata owners) external {
-        _initializeOwners(owners);
-        emit Initialized(address(uint160(uint256(bytes32(owners[0])))));
+    function initialize(address _owner) public virtual initializer {
+        owner = _owner;
+        emit Initialized(_owner);
     }
 
     /**
      * @dev Mock function for testing delegate calls
      */
-    function mockFunction() external {
-        if (msg.sender != owner) {
-            revert Unauthorized();
-        }
+    function mockFunction() public onlyOwner {
         mockFunctionCalled = true;
         emit MockFunctionCalled();
     }
 
-    function isValidSignature(
-        bytes32,
-        bytes calldata
-    ) external pure virtual returns (bytes4) {
+    function isValidSignature(bytes32, bytes calldata) external pure virtual returns (bytes4) {
         return ERC1271_MAGIC_VALUE;
     }
 
     /**
      * @dev Implementation of UUPS upgrade authorization
      */
-    function _authorizeUpgrade(
-        address
-    ) internal view virtual override onlyOwner {}
+    function _authorizeUpgrade(address) internal view virtual override onlyOwner {}
 
     /**
      * @dev Mock function that returns arbitrary bytes data
      * @param data The data to return
      * @return The input data (to verify delegation preserves data)
      */
-    function returnBytesData(
-        bytes memory data
-    ) public pure returns (bytes memory) {
+    function returnBytesData(bytes memory data) public pure returns (bytes memory) {
         return data;
     }
 
@@ -93,10 +82,7 @@ contract MockImplementation is UUPSUpgradeable, MultiOwnable {
  */
 contract FailingSignatureImplementation is MockImplementation {
     /// @dev Always returns failure for signature validation
-    function isValidSignature(
-        bytes32,
-        bytes calldata
-    ) external pure override returns (bytes4) {
+    function isValidSignature(bytes32, bytes calldata) external pure override returns (bytes4) {
         return 0xffffffff;
     }
 }
@@ -107,10 +93,7 @@ contract FailingSignatureImplementation is MockImplementation {
  */
 contract RevertingIsValidSignatureImplementation is MockImplementation {
     /// @dev Always reverts during signature validation
-    function isValidSignature(
-        bytes32,
-        bytes calldata
-    ) external pure override returns (bytes4) {
+    function isValidSignature(bytes32, bytes calldata) external pure override returns (bytes4) {
         revert("SignatureValidationFailed");
     }
 }
@@ -121,7 +104,7 @@ contract RevertingIsValidSignatureImplementation is MockImplementation {
  */
 contract RevertingInitializerMockImplementation is MockImplementation {
     /// @dev Always reverts on initialization
-    function initialize(address) public pure {
+    function initialize(address) public pure override {
         revert("InitializerReverted");
     }
 }
@@ -130,13 +113,9 @@ contract RevertingInitializerMockImplementation is MockImplementation {
  * @dev Mock implementation that returns ERC1271_MAGIC_VALUE with extra data
  */
 contract MockImplementationWithExtraData is MockImplementation {
-    function isValidSignature(
-        bytes32,
-        bytes memory
-    ) public pure override returns (bytes4) {
+    function isValidSignature(bytes32, bytes memory) public pure override returns (bytes4) {
         // Return magic value (0x1626ba7e) followed by extra data
-        bytes32 returnValue = bytes32(bytes4(ERC1271_MAGIC_VALUE)) |
-            bytes32(uint256(0xdeadbeef) << 32);
+        bytes32 returnValue = bytes32(bytes4(ERC1271_MAGIC_VALUE)) | bytes32(uint256(0xdeadbeef) << 32);
         assembly {
             // Need assembly to return more than 4 bytes from a function declared to return bytes4
             mstore(0x00, returnValue)

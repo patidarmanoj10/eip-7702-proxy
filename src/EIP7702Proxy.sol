@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 import {Proxy} from "openzeppelin-contracts/contracts/proxy/Proxy.sol";
 import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {console2} from "forge-std/console2.sol";
 
 import {NonceTracker} from "./NonceTracker.sol";
 import {IWalletValidator} from "./interfaces/IWalletValidator.sol";
@@ -67,19 +68,19 @@ contract EIP7702Proxy is Proxy {
     /// @param initData Optional calldata to call on new implementation
     /// @param validator The address of the validator contract
     /// @param signature The EOA signature authorizing this change
-    /// @param crossChainReplayable use a chain-agnostic or chain-specific hash
+    /// @param allowCrossChainReplay use a chain-agnostic or chain-specific hash
     function setImplementation(
         address newImplementation,
         bytes calldata initData,
         address validator,
         bytes calldata signature,
-        bool crossChainReplayable
+        bool allowCrossChainReplay
     ) external {
         // Construct hash using typehash to prevent signature collisions
-        bytes32 resetHash = keccak256(
+        bytes32 hash = keccak256(
             abi.encode(
                 _IMPLEMENTATION_SET_TYPEHASH,
-                crossChainReplayable ? 0 : block.chainid,
+                allowCrossChainReplay ? 0 : block.chainid,
                 _PROXY,
                 NONCE_TRACKER.useNonce(),
                 ERC1967Utils.getImplementation(),
@@ -89,8 +90,14 @@ contract EIP7702Proxy is Proxy {
             )
         );
 
+        // Log the values used in signature verification
+        console2.log("Contract: Hash to verify:", uint256(hash));
+        console2.log("Contract: Expected signer:", address(this));
+
         // Verify signature is from this address (the EOA)
-        address signer = ECDSA.recover(resetHash, signature);
+        address signer = ECDSA.recover(hash, signature);
+        console2.log("Contract: Recovered signer:", signer);
+
         if (signer != address(this)) revert InvalidSignature();
 
         // Reset the implementation slot and call initialization if provided

@@ -10,253 +10,233 @@ import {IERC1967} from "openzeppelin-contracts/contracts/interfaces/IERC1967.sol
 
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {MockImplementation} from "../mocks/MockImplementation.sol";
+import {MockRevertingValidator} from "../mocks/MockRevertingValidator.sol";
+import {console2} from "forge-std/console2.sol";
 
 contract SetImplementationTest is EIP7702ProxyBase {
-    MockImplementation newImplementation;
-    bytes32 private constant _IMPLEMENTATION_RESET_TYPEHASH =
-        keccak256(
-            "EIP7702ProxyImplementationReset(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation)"
-        );
+    MockImplementation _newImplementation;
 
     function setUp() public override {
         super.setUp();
-        newImplementation = new MockImplementation();
+        _newImplementation = new MockImplementation();
     }
 
-    function _signResetData(
-        uint256 signerPk,
-        address newImplementationAddress,
-        uint256 chainId
-    ) internal view returns (bytes memory) {
-        bytes32 resetHash = keccak256(
-            abi.encode(
-                _IMPLEMENTATION_RESET_TYPEHASH,
-                chainId == 0 ? 0 : block.chainid,
-                _proxy,
-                _nonceTracker.nonces(_eoa),
-                _getERC1967Implementation(_eoa),
-                newImplementationAddress
-            )
+    function test_succeeds_onUninitializedProxy() public {
+        assertEq(
+            _getERC1967Implementation(_eoa),
+            address(0),
+            "Implementation should start empty"
         );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, resetHash);
-        return abi.encodePacked(r, s, v);
+
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory signature = _signSetImplementationData(
+            _EOA_PRIVATE_KEY,
+            address(_implementation),
+            0, // chainId 0 for cross-chain
+            initArgs
+        );
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_implementation),
+            initArgs,
+            address(_validator),
+            signature,
+            true // Allow cross-chain replay for tests
+        );
+        assertEq(
+            _getERC1967Implementation(_eoa),
+            address(_implementation),
+            "Implementation should be set to new address"
+        );
     }
 
     function test_emitsUpgradedEvent() public {
-        bytes memory signature = _signResetData(
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory signature = _signSetImplementationData(
             _EOA_PRIVATE_KEY,
-            address(newImplementation),
-            block.chainid
+            address(_implementation),
+            0, // chainId 0 for cross-chain
+            initArgs
         );
 
         vm.expectEmit(true, false, false, false, address(_eoa));
-        emit IERC1967.Upgraded(address(newImplementation));
+        emit IERC1967.Upgraded(address(_implementation));
 
         EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
-            "",
+            address(_implementation),
+            initArgs,
             address(_validator),
             signature,
-            false
+            true // Allow cross-chain replay for tests
         );
     }
 
     function test_succeeds_withChainIdZero() public {
-        bytes memory signature = _signResetData(
-            _EOA_PRIVATE_KEY,
-            address(newImplementation),
-            0
-        );
-
-        EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
-            "",
-            address(_validator),
-            signature,
-            true
-        );
-
         assertEq(
             _getERC1967Implementation(_eoa),
-            address(newImplementation),
+            address(0),
+            "Implementation should start empty"
+        );
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory signature = _signSetImplementationData(
+            _EOA_PRIVATE_KEY,
+            address(_implementation),
+            0, // chainId 0 for cross-chain
+            initArgs
+        );
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_implementation),
+            initArgs,
+            address(_validator),
+            signature,
+            true // Allow cross-chain replay
+        );
+        assertEq(
+            _getERC1967Implementation(_eoa),
+            address(_implementation),
             "Implementation should be set to new address"
         );
     }
 
     function test_succeeds_withNonzeroChainId() public {
-        bytes memory signature = _signResetData(
+        assertEq(
+            _getERC1967Implementation(_eoa),
+            address(0),
+            "Implementation should start empty"
+        );
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory signature = _signSetImplementationData(
             _EOA_PRIVATE_KEY,
-            address(newImplementation),
-            block.chainid
+            address(_implementation),
+            block.chainid, // non-zero chainId
+            initArgs
         );
 
         EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
-            "",
+            address(_implementation),
+            initArgs,
             address(_validator),
             signature,
             false
         );
         assertEq(
             _getERC1967Implementation(_eoa),
-            address(newImplementation),
+            address(_implementation),
             "Implementation should be set to new address"
         );
     }
 
     function test_reverts_whenChainIdMismatch(uint256 wrongChainId) public {
+        assertEq(
+            _getERC1967Implementation(_eoa),
+            address(0),
+            "Implementation should start empty"
+        );
+
         vm.assume(wrongChainId != block.chainid);
         vm.assume(wrongChainId != 0);
 
-        bytes32 resetHash = keccak256(
+        bytes memory initArgs = _createInitArgs(_newOwner);
+
+        bytes32 initHash = keccak256(
             abi.encode(
-                _IMPLEMENTATION_RESET_TYPEHASH,
+                _IMPLEMENTATION_SET_TYPEHASH,
                 wrongChainId,
                 _proxy,
                 _nonceTracker.nonces(_eoa),
                 _getERC1967Implementation(_eoa),
-                address(newImplementation)
+                address(_implementation),
+                keccak256(initArgs),
+                address(_validator)
             )
         );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, resetHash);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, initHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
         EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
-            "",
+            address(_implementation),
+            initArgs,
             address(_validator),
             signature,
             false
         );
     }
 
-    function test_succeeds_whenImplementationSlotEmpty() public {
-        vm.store(_eoa, ERC1967Utils.IMPLEMENTATION_SLOT, bytes32(0));
-
+    function test_succeeds_whenImplementationSlotAlreadySet() public {
+        _initializeProxy(); // initialize the proxy with implementation
         assertEq(
-            _getERC1967Implementation(address(_eoa)),
-            address(0),
-            "Implementation slot should be empty initially"
+            _getERC1967Implementation(_eoa),
+            address(_implementation),
+            "Implementation should be set to standard implementation"
         );
-
-        bytes memory signature = _signResetData(
+        bytes memory signature = _signSetImplementationData(
             _EOA_PRIVATE_KEY,
-            address(newImplementation),
-            block.chainid
+            address(_newImplementation),
+            0, // chainId 0 for cross-chain
+            "" // empty calldata
         );
 
         EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
+            address(_newImplementation),
             "",
-            address(_validator),
+            address(_validator), // same validator
             signature,
-            false
+            true // allow cross-chain replay
         );
 
         assertEq(
-            _getERC1967Implementation(address(_eoa)),
-            address(newImplementation),
+            _getERC1967Implementation(_eoa),
+            address(_newImplementation),
             "Implementation should be set to new address"
         );
     }
 
-    function test_succeeds_whenImplementationSlotHasForeignAddress(
-        address foreignImpl
+    function test_succeeds_whenSettingToSameImplementation() public {
+        _initializeProxy(); // initialize the proxy with implementation
+        assertEq(
+            _getERC1967Implementation(_eoa),
+            address(_implementation),
+            "Implementation should be set to standard implementation"
+        );
+        bytes memory signature = _signSetImplementationData(
+            _EOA_PRIVATE_KEY,
+            address(_implementation), // same implementation
+            0, // chainId 0 for cross-chain
+            "" // empty calldata
+        );
+
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_implementation),
+            "",
+            address(_validator), // same validator
+            signature,
+            true // allow cross-chain replay
+        );
+
+        assertEq(
+            _getERC1967Implementation(_eoa),
+            address(_implementation),
+            "Implementation should be set to same original address"
+        );
+    }
+
+    function test_nonceIncrements_afterSuccessfulSetImplementation(
+        uint8 numResets
     ) public {
-        MockImplementation foreignImplementation = new MockImplementation();
-
-        vm.assume(foreignImpl != address(0));
-        vm.assume(foreignImpl != address(_implementation));
-        vm.assume(foreignImpl != address(newImplementation));
-        assumeNotPrecompile(foreignImpl);
-
-        vm.store(
-            _eoa,
-            ERC1967Utils.IMPLEMENTATION_SLOT,
-            bytes32(uint256(uint160(address(foreignImplementation))))
-        );
-
-        assertEq(
-            _getERC1967Implementation(_eoa),
-            address(foreignImplementation),
-            "Implementation slot should be set to foreign address"
-        );
-
-        bytes memory signature = _signResetData(
-            _EOA_PRIVATE_KEY,
-            address(newImplementation),
-            block.chainid
-        );
-
-        EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
-            "",
-            address(_validator),
-            signature,
-            false
-        );
-
-        assertEq(
-            _getERC1967Implementation(_eoa),
-            address(newImplementation),
-            "Implementation should be set to new address"
-        );
-    }
-
-    function test_succeeds_whenResettingToSameImplementation() public {
-        bytes memory signature = _signResetData(
-            _EOA_PRIVATE_KEY,
-            address(newImplementation),
-            block.chainid
-        );
-        EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
-            "",
-            address(_validator),
-            signature,
-            false
-        );
-
-        assertEq(
-            _getERC1967Implementation(_eoa),
-            address(newImplementation),
-            "Implementation should be set to new address after first reset"
-        );
-
-        signature = _signResetData(
-            _EOA_PRIVATE_KEY,
-            address(newImplementation),
-            block.chainid
-        );
-
-        EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
-            "",
-            address(_validator),
-            signature,
-            false
-        );
-
-        assertEq(
-            _getERC1967Implementation(_eoa),
-            address(newImplementation),
-            "Implementation should remain same address"
-        );
-    }
-
-    function test_nonceIncrements_afterSuccessfulReset(uint8 numResets) public {
         vm.assume(numResets > 0 && numResets < 10);
+
+        _initializeProxy(); // initialize the proxy with owner
 
         uint256 initialNonce = _nonceTracker.nonces(_eoa);
 
         for (uint8 i = 0; i < numResets; i++) {
             MockImplementation nextImplementation = new MockImplementation();
-
-            bytes memory signature = _signResetData(
+            bytes memory signature = _signSetImplementationData(
                 _EOA_PRIVATE_KEY,
                 address(nextImplementation),
-                block.chainid
+                block.chainid,
+                ""
             );
             EIP7702Proxy(_eoa).setImplementation(
                 address(nextImplementation),
@@ -274,6 +254,55 @@ contract SetImplementationTest is EIP7702ProxyBase {
         }
     }
 
+    function test_reverts_whenCalldataReverts() public {
+        _initializeProxy(); // initialize the proxy with owner
+        bytes memory reinitArgs = _createInitArgs(_newOwner);
+        bytes memory signature = _signSetImplementationData(
+            _EOA_PRIVATE_KEY,
+            address(_implementation),
+            0, // chainId 0 for cross-chain
+            reinitArgs // attempt to reinitialize already-initialized implementation
+        );
+
+        vm.expectRevert();
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_implementation),
+            reinitArgs,
+            address(_validator),
+            signature,
+            true // allow cross-chain replay
+        );
+    }
+
+    function test_reverts_whenValidatorReverts() public {
+        MockRevertingValidator revertingValidator = new MockRevertingValidator();
+
+        bytes memory reinitArgs = _createInitArgs(_newOwner);
+        bytes32 hash = keccak256(
+            abi.encode(
+                _IMPLEMENTATION_SET_TYPEHASH,
+                0,
+                _proxy,
+                _nonceTracker.nonces(_eoa),
+                _getERC1967Implementation(_eoa),
+                address(_implementation),
+                keccak256(reinitArgs),
+                address(revertingValidator) // validator that always reverts
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, hash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        vm.expectRevert(MockRevertingValidator.AlwaysReverts.selector);
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_implementation),
+            reinitArgs,
+            address(revertingValidator),
+            signature,
+            true
+        );
+    }
+
     function test_reverts_whenSignatureEmpty() public {
         bytes memory signature = new bytes(0);
 
@@ -281,7 +310,7 @@ contract SetImplementationTest is EIP7702ProxyBase {
             abi.encodeWithSignature("ECDSAInvalidSignatureLength(uint256)", 0)
         );
         EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
+            address(_implementation),
             "",
             address(_validator),
             signature,
@@ -302,7 +331,7 @@ contract SetImplementationTest is EIP7702ProxyBase {
             )
         );
         EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
+            address(_implementation),
             "",
             address(_validator),
             signature,
@@ -323,7 +352,7 @@ contract SetImplementationTest is EIP7702ProxyBase {
 
         vm.expectRevert();
         EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
+            address(_implementation),
             "",
             address(_validator),
             signature,
@@ -335,30 +364,35 @@ contract SetImplementationTest is EIP7702ProxyBase {
         vm.assume(wrongPk != 0);
         vm.assume(wrongPk != _EOA_PRIVATE_KEY);
 
-        bytes32 resetHash = keccak256(
+        bytes32 messageHash = keccak256(
             abi.encode(
-                _IMPLEMENTATION_RESET_TYPEHASH,
-                _eoa,
-                address(newImplementation),
-                _nonceTracker.nonces(_eoa)
+                _IMPLEMENTATION_SET_TYPEHASH,
+                0,
+                _proxy,
+                _nonceTracker.nonces(_eoa),
+                _getERC1967Implementation(_eoa),
+                address(_implementation),
+                keccak256(""),
+                address(_validator)
             )
         );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongPk, resetHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongPk, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
         EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
+            address(_implementation),
             "",
             address(_validator),
             signature,
-            false
+            true
         );
     }
 
-    function test_resetImplementation_reverts_whenSignatureReplayedWithDifferentProxy(
+    function test_reverts_whenSignatureReplayedWithDifferentProxy(
         uint128 secondProxyPk
     ) public {
+        // Deploy and initialize second proxy
         vm.assume(secondProxyPk != 0);
         vm.assume(secondProxyPk != uint128(_EOA_PRIVATE_KEY));
 
@@ -369,37 +403,41 @@ contract SetImplementationTest is EIP7702ProxyBase {
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(secondProxy, proxyCode);
         bytes memory initArgs = _createInitArgs(_newOwner);
-        bytes32 _INITIALIZATION_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialization(uint256 chainId,address proxy,uint256 nonce,bytes args)"
-        );
-        bytes32 initHash = keccak256(
+
+        bytes32 messageHash = keccak256(
             abi.encode(
-                _INITIALIZATION_TYPEHASH,
+                _IMPLEMENTATION_SET_TYPEHASH,
                 0,
                 _proxy,
                 _nonceTracker.nonces(secondProxy),
-                keccak256(initArgs)
+                _getERC1967Implementation(secondProxy),
+                address(_implementation),
+                keccak256(initArgs),
+                address(_validator)
             )
         );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(secondProxyPk, initHash);
-        bytes memory initSignature = abi.encodePacked(r, s, v);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(secondProxyPk, messageHash);
+        bytes memory initSecondProxySignature = abi.encodePacked(r, s, v);
         EIP7702Proxy(secondProxy).setImplementation(
-            address(newImplementation),
+            address(_implementation),
             initArgs,
-            address(0),
-            initSignature,
+            address(_validator),
+            initSecondProxySignature,
             true
         );
 
-        bytes memory signature = _signResetData(
+        // create signature for original proxy
+        bytes memory signature = _signSetImplementationData(
             _EOA_PRIVATE_KEY,
-            address(newImplementation),
-            block.chainid
+            address(_newImplementation),
+            block.chainid,
+            ""
         );
 
+        // attempt to play signature on second proxy
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
         EIP7702Proxy(secondProxy).setImplementation(
-            address(newImplementation),
+            address(_newImplementation),
             "",
             address(_validator),
             signature,
@@ -411,19 +449,21 @@ contract SetImplementationTest is EIP7702ProxyBase {
         address differentImpl
     ) public {
         vm.assume(differentImpl != address(0));
-        vm.assume(differentImpl != address(newImplementation));
+        vm.assume(differentImpl != address(_implementation));
         assumeNotPrecompile(differentImpl);
 
-        bytes memory signature = _signResetData(
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory signature = _signSetImplementationData(
             _EOA_PRIVATE_KEY,
-            address(newImplementation),
-            block.chainid
+            address(_implementation), // sign over standard implementation
+            block.chainid,
+            initArgs
         );
 
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
         EIP7702Proxy(_eoa).setImplementation(
-            differentImpl,
-            "",
+            differentImpl, // different implementation than signed over
+            initArgs,
             address(_validator),
             signature,
             false
@@ -437,21 +477,26 @@ contract SetImplementationTest is EIP7702ProxyBase {
 
         vm.assume(wrongNonce != currentNonce);
 
-        bytes32 resetHash = keccak256(
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes32 initHash = keccak256(
             abi.encode(
-                _IMPLEMENTATION_RESET_TYPEHASH,
+                _IMPLEMENTATION_SET_TYPEHASH,
+                block.chainid,
                 _proxy,
-                address(newImplementation),
-                wrongNonce
+                wrongNonce, // wrong nonce
+                _getERC1967Implementation(_eoa),
+                address(_implementation),
+                keccak256(initArgs),
+                address(_validator)
             )
         );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, resetHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, initHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
         EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
-            "",
+            address(_implementation),
+            initArgs,
             address(_validator),
             signature,
             false
@@ -459,23 +504,31 @@ contract SetImplementationTest is EIP7702ProxyBase {
     }
 
     function test_reverts_whenSignatureReplayedWithSameNonce() public {
-        bytes memory signature = _signResetData(
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory signature = _signSetImplementationData(
             _EOA_PRIVATE_KEY,
-            address(newImplementation),
-            block.chainid
+            address(_implementation),
+            block.chainid,
+            initArgs
         );
         EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
-            "",
+            address(_implementation),
+            initArgs,
             address(_validator),
             signature,
             false
         );
+        assertEq(
+            _getERC1967Implementation(_eoa),
+            address(_implementation),
+            "Implementation should be set to standard implementation"
+        );
 
+        // attempt to replay signature with same nonce
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
         EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
-            "",
+            address(_implementation),
+            initArgs,
             address(_validator),
             signature,
             false
@@ -483,27 +536,34 @@ contract SetImplementationTest is EIP7702ProxyBase {
     }
 
     function test_reverts_whenSignatureUsesWrongCurrentImplementation() public {
+        assertEq(
+            _getERC1967Implementation(_eoa),
+            address(0),
+            "Implementation should start empty"
+        );
+
         MockImplementation wrongCurrentImpl = new MockImplementation();
 
-        uint256 expectedNonce = _nonceTracker.nonces(_eoa);
-
-        bytes32 resetHash = keccak256(
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes32 initHash = keccak256(
             abi.encode(
-                _IMPLEMENTATION_RESET_TYPEHASH,
-                _proxy,
-                address(wrongCurrentImpl),
-                address(newImplementation),
+                _IMPLEMENTATION_SET_TYPEHASH,
                 block.chainid,
-                expectedNonce
+                _proxy,
+                _nonceTracker.nonces(_eoa),
+                address(wrongCurrentImpl), // wrong current implementation
+                address(_implementation),
+                keccak256(initArgs),
+                address(_validator)
             )
         );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, resetHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_EOA_PRIVATE_KEY, initHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
         EIP7702Proxy(_eoa).setImplementation(
-            address(newImplementation),
-            "",
+            address(_implementation),
+            initArgs,
             address(_validator),
             signature,
             false
