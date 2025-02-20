@@ -31,18 +31,13 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
         emit IERC1967.Upgraded(address(newImplementation));
 
         MockImplementation(payable(_eoa)).upgradeToAndCall(
-            address(newImplementation),
-            abi.encodeWithSelector(MockImplementation.mockFunction.selector)
+            address(newImplementation), abi.encodeWithSelector(MockImplementation.mockFunction.selector)
         );
 
         // Verify implementation was upgraded
         address newImpl = _getERC1967Implementation(address(_eoa));
         assertNotEq(newImpl, oldImpl, "Implementation should have changed");
-        assertEq(
-            newImpl,
-            address(newImplementation),
-            "Implementation should be set to new address"
-        );
+        assertEq(newImpl, address(newImplementation), "Implementation should be set to new address");
     }
 
     function test_emitsUpgradedEvent_afterSuccess() public {
@@ -51,10 +46,7 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
         vm.expectEmit(true, false, false, false, address(_eoa));
         emit IERC1967.Upgraded(address(newImplementation));
 
-        MockImplementation(payable(_eoa)).upgradeToAndCall(
-            address(newImplementation),
-            ""
-        );
+        MockImplementation(payable(_eoa)).upgradeToAndCall(address(newImplementation), "");
     }
 
     function test_reverts_whenCalledByNonOwner(address nonOwner) public {
@@ -64,10 +56,7 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
 
         vm.prank(nonOwner);
         vm.expectRevert(MockImplementation.Unauthorized.selector); // From MockImplementation
-        MockImplementation(payable(_eoa)).upgradeToAndCall(
-            address(newImplementation),
-            ""
-        );
+        MockImplementation(payable(_eoa)).upgradeToAndCall(address(newImplementation), "");
 
         // Verify implementation was not changed
         assertEq(

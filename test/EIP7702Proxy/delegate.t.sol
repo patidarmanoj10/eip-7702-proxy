@@ -13,11 +13,7 @@ contract DelegateTest is EIP7702ProxyBase {
     }
 
     function test_succeeds_whenReadingState() public {
-        assertEq(
-            MockImplementation(payable(_eoa)).owner(),
-            _newOwner,
-            "Delegated read call should succeed"
-        );
+        assertEq(MockImplementation(payable(_eoa)).owner(), _newOwner, "Delegated read call should succeed");
     }
 
     function test_succeeds_whenWritingState() public {
@@ -25,17 +21,10 @@ contract DelegateTest is EIP7702ProxyBase {
         MockImplementation(payable(_eoa)).mockFunction();
     }
 
-    function test_preservesReturnData_whenReturningBytes(
-        bytes memory testData
-    ) public {
-        bytes memory returnedData = MockImplementation(payable(_eoa))
-            .returnBytesData(testData);
+    function test_preservesReturnData_whenReturningBytes(bytes memory testData) public {
+        bytes memory returnedData = MockImplementation(payable(_eoa)).returnBytesData(testData);
 
-        assertEq(
-            returnedData,
-            testData,
-            "Complex return data should be correctly delegated"
-        );
+        assertEq(returnedData, testData, "Complex return data should be correctly delegated");
     }
 
     function test_reverts_whenReadReverts() public {
@@ -51,18 +40,11 @@ contract DelegateTest is EIP7702ProxyBase {
         vm.expectRevert(MockImplementation.Unauthorized.selector);
         MockImplementation(payable(_eoa)).mockFunction();
 
-        assertFalse(
-            MockImplementation(payable(_eoa)).mockFunctionCalled(),
-            "State should not change when write fails"
-        );
+        assertFalse(MockImplementation(payable(_eoa)).mockFunctionCalled(), "State should not change when write fails");
     }
 
     function test_continues_delegating_afterUpgrade() public {
-        assertEq(
-            MockImplementation(payable(_eoa)).owner(),
-            _newOwner,
-            "Owner should be set"
-        );
+        assertEq(MockImplementation(payable(_eoa)).owner(), _newOwner, "Owner should be set");
 
         // Deploy a new implementation
         MockImplementation newImplementation = new MockImplementation();
@@ -85,21 +67,14 @@ contract DelegateTest is EIP7702ProxyBase {
         );
 
         // Verify the implementation was changed
-        assertEq(
-            _getERC1967Implementation(_eoa),
-            address(newImplementation),
-            "Implementation should be updated"
-        );
+        assertEq(_getERC1967Implementation(_eoa), address(newImplementation), "Implementation should be updated");
 
         // Try to make a call through the proxy
         vm.prank(_newOwner);
         MockImplementation(_eoa).mockFunction();
 
         // Verify the call succeeded (new implementation shares ownership state with original implementation)
-        assertTrue(
-            MockImplementation(_eoa).mockFunctionCalled(),
-            "Should be able to call through proxy after upgrade"
-        );
+        assertTrue(MockImplementation(_eoa).mockFunctionCalled(), "Should be able to call through proxy after upgrade");
     }
 
     function test_allows_ethTransfersBeforeInitialization() public {
@@ -108,14 +83,12 @@ contract DelegateTest is EIP7702ProxyBase {
         _deployProxy(uninitProxy);
 
         // Should succeed with empty calldata and ETH value
-        (bool success, ) = uninitProxy.call{value: 1 ether}("");
+        (bool success,) = uninitProxy.call{value: 1 ether}("");
         assertTrue(success, "ETH transfer should succeed");
         assertEq(address(uninitProxy).balance, 1 ether);
     }
 
-    function test_reverts_whenCallingWithArbitraryDataBeforeInitialization(
-        bytes calldata data
-    ) public {
+    function test_reverts_whenCallingWithArbitraryDataBeforeInitialization(bytes calldata data) public {
         // Skip empty calls or pure ETH transfers
         vm.assume(data.length > 0);
 

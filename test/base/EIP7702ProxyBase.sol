@@ -17,13 +17,11 @@ import {MockImplementation} from "../mocks/MockImplementation.sol";
  */
 abstract contract EIP7702ProxyBase is Test {
     /// @dev Storage slot with the address of the current implementation (ERC1967)
-    bytes32 internal constant IMPLEMENTATION_SLOT =
-        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+    bytes32 internal constant IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
-    bytes32 internal constant _IMPLEMENTATION_SET_TYPEHASH =
-        keccak256(
-            "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes32 initData,address validator)"
-        );
+    bytes32 internal constant _IMPLEMENTATION_SET_TYPEHASH = keccak256(
+        "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes32 initData,address validator)"
+    );
 
     /// @dev Test account private keys and addresses
     uint256 internal constant _EOA_PRIVATE_KEY = 0xA11CE;
@@ -138,15 +136,9 @@ abstract contract EIP7702ProxyBase is Test {
      * @param owner Address to set as owner
      * @return Encoded initialization arguments
      */
-    function _createInitArgs(
-        address owner
-    ) internal pure returns (bytes memory) {
+    function _createInitArgs(address owner) internal pure returns (bytes memory) {
         // Encode the complete function call: initialize(address)
-        return
-            abi.encodeWithSelector(
-                MockImplementation.initialize.selector,
-                owner
-            );
+        return abi.encodeWithSelector(MockImplementation.initialize.selector, owner);
     }
 
     /**
@@ -154,9 +146,7 @@ abstract contract EIP7702ProxyBase is Test {
      * @param proxy Address of the proxy contract to read from
      * @return The implementation address stored in the ERC1967 slot
      */
-    function _getERC1967Implementation(
-        address proxy
-    ) internal view returns (address) {
+    function _getERC1967Implementation(address proxy) internal view returns (address) {
         return address(uint160(uint256(vm.load(proxy, IMPLEMENTATION_SLOT))));
     }
 

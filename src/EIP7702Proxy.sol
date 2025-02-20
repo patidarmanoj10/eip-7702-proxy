@@ -24,10 +24,9 @@ contract EIP7702Proxy is Proxy {
     bytes4 internal constant _ERC1271_FAIL_VALUE = 0xffffffff;
 
     /// @notice Typehash for setting implementation
-    bytes32 internal constant _IMPLEMENTATION_SET_TYPEHASH =
-        keccak256(
-            "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes32 initData,address validator)"
-        );
+    bytes32 internal constant _IMPLEMENTATION_SET_TYPEHASH = keccak256(
+        "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes32 initData,address validator)"
+    );
 
     /// @notice A default implementation that allows this address to receive tokens before initialization
     Receiver public immutable RECEIVER;
@@ -49,10 +48,12 @@ contract EIP7702Proxy is Proxy {
     /// @param nonceTracker The address of the nonce tracker contract
     /// @param receiver The address of the receiver contract
     constructor(NonceTracker nonceTracker, Receiver receiver) {
-        if (address(receiver) == address(0))
+        if (address(receiver) == address(0)) {
             revert ZeroValueConstructorArguments();
-        if (address(nonceTracker) == address(0))
+        }
+        if (address(nonceTracker) == address(0)) {
             revert ZeroValueConstructorArguments();
+        }
 
         NONCE_TRACKER = nonceTracker;
         RECEIVER = receiver;
@@ -118,29 +119,17 @@ contract EIP7702Proxy is Proxy {
     /// @param signature The signature of the message
     ///
     /// @return The result of the `isValidSignature` check
-    function isValidSignature(
-        bytes32 hash,
-        bytes calldata signature
-    ) external returns (bytes4) {
+    function isValidSignature(bytes32 hash, bytes calldata signature) external returns (bytes4) {
         // First try delegatecall to implementation
-        (bool success, bytes memory result) = _implementation().delegatecall(
-            msg.data
-        );
+        (bool success, bytes memory result) = _implementation().delegatecall(msg.data);
 
         // If delegatecall succeeded and returned magic value, return that
-        if (
-            success &&
-            result.length == 32 &&
-            bytes4(result) == _ERC1271_MAGIC_VALUE
-        ) {
+        if (success && result.length == 32 && bytes4(result) == _ERC1271_MAGIC_VALUE) {
             return _ERC1271_MAGIC_VALUE;
         }
 
         // Only return success if there was no error and the signer matches
-        (address recovered, ECDSA.RecoverError error, ) = ECDSA.tryRecover(
-            hash,
-            signature
-        );
+        (address recovered, ECDSA.RecoverError error,) = ECDSA.tryRecover(hash, signature);
         if (error == ECDSA.RecoverError.NoError && recovered == address(this)) {
             return _ERC1271_MAGIC_VALUE;
         }
@@ -155,7 +144,6 @@ contract EIP7702Proxy is Proxy {
     /// @return implementation The implementation address for this proxy
     function _implementation() internal view override returns (address) {
         address implementation = ERC1967Utils.getImplementation();
-        return
-            implementation == address(0) ? address(RECEIVER) : implementation;
+        return implementation == address(0) ? address(RECEIVER) : implementation;
     }
 }

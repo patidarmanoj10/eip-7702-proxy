@@ -22,11 +22,7 @@ contract SetImplementationTest is EIP7702ProxyBase {
     }
 
     function test_succeeds_onUninitializedProxy() public {
-        assertEq(
-            _getERC1967Implementation(_eoa),
-            address(0),
-            "Implementation should start empty"
-        );
+        assertEq(_getERC1967Implementation(_eoa), address(0), "Implementation should start empty");
 
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signSetImplementationData(
@@ -43,9 +39,7 @@ contract SetImplementationTest is EIP7702ProxyBase {
             true // Allow cross-chain replay for tests
         );
         assertEq(
-            _getERC1967Implementation(_eoa),
-            address(_implementation),
-            "Implementation should be set to new address"
+            _getERC1967Implementation(_eoa), address(_implementation), "Implementation should be set to new address"
         );
     }
 
@@ -71,11 +65,7 @@ contract SetImplementationTest is EIP7702ProxyBase {
     }
 
     function test_succeeds_withChainIdZero() public {
-        assertEq(
-            _getERC1967Implementation(_eoa),
-            address(0),
-            "Implementation should start empty"
-        );
+        assertEq(_getERC1967Implementation(_eoa), address(0), "Implementation should start empty");
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signSetImplementationData(
             _EOA_PRIVATE_KEY,
@@ -91,18 +81,12 @@ contract SetImplementationTest is EIP7702ProxyBase {
             true // Allow cross-chain replay
         );
         assertEq(
-            _getERC1967Implementation(_eoa),
-            address(_implementation),
-            "Implementation should be set to new address"
+            _getERC1967Implementation(_eoa), address(_implementation), "Implementation should be set to new address"
         );
     }
 
     function test_succeeds_withNonzeroChainId() public {
-        assertEq(
-            _getERC1967Implementation(_eoa),
-            address(0),
-            "Implementation should start empty"
-        );
+        assertEq(_getERC1967Implementation(_eoa), address(0), "Implementation should start empty");
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signSetImplementationData(
             _EOA_PRIVATE_KEY,
@@ -111,26 +95,14 @@ contract SetImplementationTest is EIP7702ProxyBase {
             initArgs
         );
 
-        EIP7702Proxy(_eoa).setImplementation(
-            address(_implementation),
-            initArgs,
-            address(_validator),
-            signature,
-            false
-        );
+        EIP7702Proxy(_eoa).setImplementation(address(_implementation), initArgs, address(_validator), signature, false);
         assertEq(
-            _getERC1967Implementation(_eoa),
-            address(_implementation),
-            "Implementation should be set to new address"
+            _getERC1967Implementation(_eoa), address(_implementation), "Implementation should be set to new address"
         );
     }
 
     function test_reverts_whenChainIdMismatch(uint256 wrongChainId) public {
-        assertEq(
-            _getERC1967Implementation(_eoa),
-            address(0),
-            "Implementation should start empty"
-        );
+        assertEq(_getERC1967Implementation(_eoa), address(0), "Implementation should start empty");
 
         vm.assume(wrongChainId != block.chainid);
         vm.assume(wrongChainId != 0);
@@ -154,13 +126,7 @@ contract SetImplementationTest is EIP7702ProxyBase {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
-        EIP7702Proxy(_eoa).setImplementation(
-            address(_implementation),
-            initArgs,
-            address(_validator),
-            signature,
-            false
-        );
+        EIP7702Proxy(_eoa).setImplementation(address(_implementation), initArgs, address(_validator), signature, false);
     }
 
     function test_succeeds_whenImplementationSlotAlreadySet() public {
@@ -186,9 +152,7 @@ contract SetImplementationTest is EIP7702ProxyBase {
         );
 
         assertEq(
-            _getERC1967Implementation(_eoa),
-            address(_newImplementation),
-            "Implementation should be set to new address"
+            _getERC1967Implementation(_eoa), address(_newImplementation), "Implementation should be set to new address"
         );
     }
 
@@ -221,9 +185,7 @@ contract SetImplementationTest is EIP7702ProxyBase {
         );
     }
 
-    function test_nonceIncrements_afterSuccessfulSetImplementation(
-        uint8 numResets
-    ) public {
+    function test_nonceIncrements_afterSuccessfulSetImplementation(uint8 numResets) public {
         vm.assume(numResets > 0 && numResets < 10);
 
         _initializeProxy(); // initialize the proxy with owner
@@ -232,25 +194,11 @@ contract SetImplementationTest is EIP7702ProxyBase {
 
         for (uint8 i = 0; i < numResets; i++) {
             MockImplementation nextImplementation = new MockImplementation();
-            bytes memory signature = _signSetImplementationData(
-                _EOA_PRIVATE_KEY,
-                address(nextImplementation),
-                block.chainid,
-                ""
-            );
-            EIP7702Proxy(_eoa).setImplementation(
-                address(nextImplementation),
-                "",
-                address(_validator),
-                signature,
-                false
-            );
+            bytes memory signature =
+                _signSetImplementationData(_EOA_PRIVATE_KEY, address(nextImplementation), block.chainid, "");
+            EIP7702Proxy(_eoa).setImplementation(address(nextImplementation), "", address(_validator), signature, false);
 
-            assertEq(
-                _nonceTracker.nonces(_eoa),
-                initialNonce + i + 1,
-                "Nonce should increment by one after each reset"
-            );
+            assertEq(_nonceTracker.nonces(_eoa), initialNonce + i + 1, "Nonce should increment by one after each reset");
         }
     }
 
@@ -295,27 +243,15 @@ contract SetImplementationTest is EIP7702ProxyBase {
 
         vm.expectRevert(MockRevertingValidator.AlwaysReverts.selector);
         EIP7702Proxy(_eoa).setImplementation(
-            address(_implementation),
-            reinitArgs,
-            address(revertingValidator),
-            signature,
-            true
+            address(_implementation), reinitArgs, address(revertingValidator), signature, true
         );
     }
 
     function test_reverts_whenSignatureEmpty() public {
         bytes memory signature = new bytes(0);
 
-        vm.expectRevert(
-            abi.encodeWithSignature("ECDSAInvalidSignatureLength(uint256)", 0)
-        );
-        EIP7702Proxy(_eoa).setImplementation(
-            address(_implementation),
-            "",
-            address(_validator),
-            signature,
-            false
-        );
+        vm.expectRevert(abi.encodeWithSignature("ECDSAInvalidSignatureLength(uint256)", 0));
+        EIP7702Proxy(_eoa).setImplementation(address(_implementation), "", address(_validator), signature, false);
     }
 
     function test_reverts_whenSignatureLengthInvalid(uint8 length) public {
@@ -324,26 +260,11 @@ contract SetImplementationTest is EIP7702ProxyBase {
 
         bytes memory signature = new bytes(length);
 
-        vm.expectRevert(
-            abi.encodeWithSignature(
-                "ECDSAInvalidSignatureLength(uint256)",
-                length
-            )
-        );
-        EIP7702Proxy(_eoa).setImplementation(
-            address(_implementation),
-            "",
-            address(_validator),
-            signature,
-            false
-        );
+        vm.expectRevert(abi.encodeWithSignature("ECDSAInvalidSignatureLength(uint256)", length));
+        EIP7702Proxy(_eoa).setImplementation(address(_implementation), "", address(_validator), signature, false);
     }
 
-    function test_reverts_whenSignatureInvalid(
-        bytes32 r,
-        bytes32 s,
-        uint8 v
-    ) public {
+    function test_reverts_whenSignatureInvalid(bytes32 r, bytes32 s, uint8 v) public {
         vm.assume(v != 27 && v != 28);
 
         bytes memory signature = abi.encodePacked(r, s, v);
@@ -351,13 +272,7 @@ contract SetImplementationTest is EIP7702ProxyBase {
         assertEq(signature.length, 65, "Signature should be 65 bytes");
 
         vm.expectRevert();
-        EIP7702Proxy(_eoa).setImplementation(
-            address(_implementation),
-            "",
-            address(_validator),
-            signature,
-            false
-        );
+        EIP7702Proxy(_eoa).setImplementation(address(_implementation), "", address(_validator), signature, false);
     }
 
     function test_reverts_whenSignerWrong(uint128 wrongPk) public {
@@ -380,18 +295,10 @@ contract SetImplementationTest is EIP7702ProxyBase {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
-        EIP7702Proxy(_eoa).setImplementation(
-            address(_implementation),
-            "",
-            address(_validator),
-            signature,
-            true
-        );
+        EIP7702Proxy(_eoa).setImplementation(address(_implementation), "", address(_validator), signature, true);
     }
 
-    function test_reverts_whenSignatureReplayedWithDifferentProxy(
-        uint128 secondProxyPk
-    ) public {
+    function test_reverts_whenSignatureReplayedWithDifferentProxy(uint128 secondProxyPk) public {
         // Deploy and initialize second proxy
         vm.assume(secondProxyPk != 0);
         vm.assume(secondProxyPk != uint128(_EOA_PRIVATE_KEY));
@@ -419,35 +326,21 @@ contract SetImplementationTest is EIP7702ProxyBase {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(secondProxyPk, messageHash);
         bytes memory initSecondProxySignature = abi.encodePacked(r, s, v);
         EIP7702Proxy(secondProxy).setImplementation(
-            address(_implementation),
-            initArgs,
-            address(_validator),
-            initSecondProxySignature,
-            true
+            address(_implementation), initArgs, address(_validator), initSecondProxySignature, true
         );
 
         // create signature for original proxy
-        bytes memory signature = _signSetImplementationData(
-            _EOA_PRIVATE_KEY,
-            address(_newImplementation),
-            block.chainid,
-            ""
-        );
+        bytes memory signature =
+            _signSetImplementationData(_EOA_PRIVATE_KEY, address(_newImplementation), block.chainid, "");
 
         // attempt to play signature on second proxy
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
         EIP7702Proxy(secondProxy).setImplementation(
-            address(_newImplementation),
-            "",
-            address(_validator),
-            signature,
-            false
+            address(_newImplementation), "", address(_validator), signature, false
         );
     }
 
-    function test_reverts_whenSignatureReplayedWithDifferentImplementation(
-        address differentImpl
-    ) public {
+    function test_reverts_whenSignatureReplayedWithDifferentImplementation(address differentImpl) public {
         vm.assume(differentImpl != address(0));
         vm.assume(differentImpl != address(_implementation));
         assumeNotPrecompile(differentImpl);
@@ -470,9 +363,7 @@ contract SetImplementationTest is EIP7702ProxyBase {
         );
     }
 
-    function test_reverts_whenSignatureUsesWrongNonce(
-        uint256 wrongNonce
-    ) public {
+    function test_reverts_whenSignatureUsesWrongNonce(uint256 wrongNonce) public {
         uint256 currentNonce = _nonceTracker.nonces(_eoa);
 
         vm.assume(wrongNonce != currentNonce);
@@ -494,30 +385,14 @@ contract SetImplementationTest is EIP7702ProxyBase {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
-        EIP7702Proxy(_eoa).setImplementation(
-            address(_implementation),
-            initArgs,
-            address(_validator),
-            signature,
-            false
-        );
+        EIP7702Proxy(_eoa).setImplementation(address(_implementation), initArgs, address(_validator), signature, false);
     }
 
     function test_reverts_whenSignatureReplayedWithSameNonce() public {
         bytes memory initArgs = _createInitArgs(_newOwner);
-        bytes memory signature = _signSetImplementationData(
-            _EOA_PRIVATE_KEY,
-            address(_implementation),
-            block.chainid,
-            initArgs
-        );
-        EIP7702Proxy(_eoa).setImplementation(
-            address(_implementation),
-            initArgs,
-            address(_validator),
-            signature,
-            false
-        );
+        bytes memory signature =
+            _signSetImplementationData(_EOA_PRIVATE_KEY, address(_implementation), block.chainid, initArgs);
+        EIP7702Proxy(_eoa).setImplementation(address(_implementation), initArgs, address(_validator), signature, false);
         assertEq(
             _getERC1967Implementation(_eoa),
             address(_implementation),
@@ -526,21 +401,11 @@ contract SetImplementationTest is EIP7702ProxyBase {
 
         // attempt to replay signature with same nonce
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
-        EIP7702Proxy(_eoa).setImplementation(
-            address(_implementation),
-            initArgs,
-            address(_validator),
-            signature,
-            false
-        );
+        EIP7702Proxy(_eoa).setImplementation(address(_implementation), initArgs, address(_validator), signature, false);
     }
 
     function test_reverts_whenSignatureUsesWrongCurrentImplementation() public {
-        assertEq(
-            _getERC1967Implementation(_eoa),
-            address(0),
-            "Implementation should start empty"
-        );
+        assertEq(_getERC1967Implementation(_eoa), address(0), "Implementation should start empty");
 
         MockImplementation wrongCurrentImpl = new MockImplementation();
 
@@ -561,12 +426,6 @@ contract SetImplementationTest is EIP7702ProxyBase {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.expectRevert(EIP7702Proxy.InvalidSignature.selector);
-        EIP7702Proxy(_eoa).setImplementation(
-            address(_implementation),
-            initArgs,
-            address(_validator),
-            signature,
-            false
-        );
+        EIP7702Proxy(_eoa).setImplementation(address(_implementation), initArgs, address(_validator), signature, false);
     }
 }
