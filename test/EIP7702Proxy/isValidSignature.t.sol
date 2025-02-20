@@ -3,6 +3,8 @@ pragma solidity ^0.8.23;
 
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
 import {NonceTracker} from "../../src/NonceTracker.sol";
+import {DefaultReceiver} from "../../src/DefaultReceiver.sol";
+import {CoinbaseSmartWalletValidator} from "../../src/validators/CoinbaseSmartWalletValidator.sol";
 
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
@@ -81,28 +83,33 @@ abstract contract IsValidSignatureTestBase is EIP7702ProxyBase {
  */
 contract FailingImplementationTest is IsValidSignatureTestBase {
     function setUp() public override {
-        super.setUp();
-
-        // Override base setup to use FailingSignatureImplementation
+        // Deploy core contracts first
         _implementation = new FailingSignatureImplementation();
-        _initSelector = MockImplementation.initialize.selector;
+        _nonceTracker = new NonceTracker();
+        _receiver = new DefaultReceiver();
+        _validator = new CoinbaseSmartWalletValidator();
 
         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
-        // Deploy and setup proxy
-        _proxy = new EIP7702Proxy(
-            address(_implementation),
-            _initSelector,
-            _nonceTracker
-        );
+        // Deploy proxy with receiver and nonce tracker
+        _proxy = new EIP7702Proxy(_nonceTracker, _receiver);
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);
 
-        // Initialize
+        // Initialize with implementation
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature, true);
+
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_implementation),
+            initArgs,
+            address(_validator),
+            signature,
+            true // Allow cross-chain replay for tests
+        );
+
+        super.setUp();
     }
 
     function expectedInvalidSignatureResult()
@@ -239,28 +246,33 @@ contract FailingImplementationTest is IsValidSignatureTestBase {
  */
 contract SucceedingImplementationTest is IsValidSignatureTestBase {
     function setUp() public override {
-        super.setUp();
-
-        // Override base implementation with standard MockImplementation (always succeeds)
+        // Deploy core contracts first
         _implementation = new MockImplementation();
-        _initSelector = MockImplementation.initialize.selector;
+        _nonceTracker = new NonceTracker();
+        _receiver = new DefaultReceiver();
+        _validator = new CoinbaseSmartWalletValidator();
 
         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
-        // Deploy and setup proxy
-        _proxy = new EIP7702Proxy(
-            address(_implementation),
-            _initSelector,
-            _nonceTracker
-        );
+        // Deploy proxy with receiver and nonce tracker
+        _proxy = new EIP7702Proxy(_nonceTracker, _receiver);
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);
 
-        // Initialize
+        // Initialize with implementation
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature, true);
+
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_implementation),
+            initArgs,
+            address(_validator),
+            signature,
+            true
+        );
+
+        super.setUp();
     }
 
     function expectedInvalidSignatureResult()
@@ -292,28 +304,33 @@ contract SucceedingImplementationTest is IsValidSignatureTestBase {
  */
 contract RevertingImplementationTest is IsValidSignatureTestBase {
     function setUp() public override {
-        super.setUp();
-
-        // Override base setup to use RevertingIsValidSignatureImplementation
+        // Deploy core contracts first
         _implementation = new RevertingIsValidSignatureImplementation();
-        _initSelector = MockImplementation.initialize.selector;
+        _nonceTracker = new NonceTracker();
+        _receiver = new DefaultReceiver();
+        _validator = new CoinbaseSmartWalletValidator();
 
         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
-        // Deploy and setup proxy
-        _proxy = new EIP7702Proxy(
-            address(_implementation),
-            _initSelector,
-            _nonceTracker
-        );
+        // Deploy proxy with receiver and nonce tracker
+        _proxy = new EIP7702Proxy(_nonceTracker, _receiver);
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);
 
-        // Initialize
+        // Initialize with implementation
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature, true);
+
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_implementation),
+            initArgs,
+            address(_validator),
+            signature,
+            true
+        );
+
+        super.setUp();
     }
 
     function expectedInvalidSignatureResult()
@@ -354,27 +371,31 @@ contract ExtraDataTest is IsValidSignatureTestBase {
     }
 
     function setUp() public override {
-        // Override base setup to use MockImplementationWithExtraData
+        // Deploy core contracts first
         _implementation = new MockImplementationWithExtraData();
         _nonceTracker = new NonceTracker();
-        _initSelector = MockImplementation.initialize.selector;
+        _receiver = new DefaultReceiver();
+        _validator = new CoinbaseSmartWalletValidator();
 
         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
-        // Deploy and setup proxy
-        _proxy = new EIP7702Proxy(
-            address(_implementation),
-            _initSelector,
-            _nonceTracker
-        );
+        // Deploy proxy with receiver and nonce tracker
+        _proxy = new EIP7702Proxy(_nonceTracker, _receiver);
         bytes memory proxyCode = address(_proxy).code;
         vm.etch(_eoa, proxyCode);
 
-        // Initialize
+        // Initialize with implementation
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature, true);
+
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_implementation),
+            initArgs,
+            address(_validator),
+            signature,
+            true
+        );
 
         super.setUp();
     }

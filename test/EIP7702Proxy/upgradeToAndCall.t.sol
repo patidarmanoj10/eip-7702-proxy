@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
 
 import {IERC1967} from "openzeppelin-contracts/contracts/interfaces/IERC1967.sol";
+import {MultiOwnable} from "../../lib/smart-wallet/src/MultiOwnable.sol";
 
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {MockImplementation} from "../mocks/MockImplementation.sol";
@@ -21,7 +22,13 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
         // Initialize the proxy first
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature, true);
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_implementation),
+            initArgs,
+            address(_validator),
+            signature,
+            true
+        );
 
         // Deploy new implementation
         newImplementation = new MockImplementation();
@@ -69,7 +76,7 @@ contract UpgradeToAndCallTest is EIP7702ProxyBase {
         assumeNotPrecompile(nonOwner);
 
         vm.prank(nonOwner);
-        vm.expectRevert(MockImplementation.Unauthorized.selector); // From MockImplementation
+        vm.expectRevert(MultiOwnable.Unauthorized.selector); // From MockImplementation
         MockImplementation(payable(_eoa)).upgradeToAndCall(
             address(newImplementation),
             ""

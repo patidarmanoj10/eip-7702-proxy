@@ -9,6 +9,9 @@ import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.s
 
 import {Test} from "forge-std/Test.sol";
 
+import {DefaultReceiver} from "../../src/DefaultReceiver.sol";
+import {CoinbaseSmartWalletValidator} from "../../src/validators/CoinbaseSmartWalletValidator.sol";
+
 /**
  * @title CoinbaseImplementationTest
  * @dev Tests specific to the CoinbaseSmartWallet implementation
@@ -29,28 +32,39 @@ contract CoinbaseImplementationTest is Test {
     bytes4 constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
     bytes4 constant ERC1271_FAIL_VALUE = 0xffffffff;
 
+    // Add new variables
+    DefaultReceiver receiver;
+    CoinbaseSmartWalletValidator validator;
+
     function setUp() public virtual {
         // Set up test accounts
         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
-        // Deploy Coinbase implementation and nonce tracker
+        // Deploy core contracts
         implementation = new CoinbaseSmartWallet();
         nonceTracker = new NonceTracker();
-        initSelector = CoinbaseSmartWallet.initialize.selector;
+        receiver = new DefaultReceiver();
+        validator = new CoinbaseSmartWalletValidator();
 
-        // Deploy and setup proxy
-        proxy = new EIP7702Proxy(
-            address(implementation),
-            initSelector,
-            nonceTracker
-        );
+        // Deploy proxy with receiver and nonce tracker
+        proxy = new EIP7702Proxy(nonceTracker, receiver);
+
+        // Etch proxy code at EOA address
         bytes memory proxyCode = address(proxy).code;
         vm.etch(_eoa, proxyCode);
 
+        // Initialize with implementation
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature, true);
+
+        EIP7702Proxy(_eoa).setImplementation(
+            address(implementation),
+            initArgs,
+            address(validator),
+            signature,
+            true // Allow cross-chain replay for tests
+        );
 
         wallet = CoinbaseSmartWallet(payable(_eoa));
     }
@@ -79,16 +93,20 @@ contract CoinbaseImplementationTest is Test {
         uint256 signerPk,
         bytes memory initArgs
     ) internal view returns (bytes memory) {
-        bytes32 _INITIALIZATION_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialization(uint256 chainId,address proxy,uint256 nonce,bytes args)"
+        bytes32 _IMPLEMENTATION_SET_TYPEHASH = keccak256(
+            "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes32 initData,address validator)"
         );
+
         bytes32 initHash = keccak256(
             abi.encode(
-                _INITIALIZATION_TYPEHASH,
-                0,
+                _IMPLEMENTATION_SET_TYPEHASH,
+                0, // chainId 0 for cross-chain
                 proxy,
                 nonceTracker.nonces(_eoa),
-                keccak256(initArgs)
+                address(0), // current implementation is 0
+                address(implementation),
+                keccak256(initArgs),
+                address(validator)
             )
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
@@ -240,6 +258,12 @@ contract CoinbaseImplementationTest is Test {
 
         // Try to initialize again
         vm.expectRevert(CoinbaseSmartWallet.Initialized.selector);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature, true);
+        EIP7702Proxy(_eoa).setImplementation(
+            address(implementation),
+            initArgs,
+            address(validator),
+            signature,
+            true
+        );
     }
 }

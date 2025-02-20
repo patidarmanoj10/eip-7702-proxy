@@ -2,20 +2,27 @@
 pragma solidity ^0.8.23;
 
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
-
+import {DefaultReceiver} from "../../src/DefaultReceiver.sol";
+import {CoinbaseSmartWalletValidator} from "../../src/validators/CoinbaseSmartWalletValidator.sol";
+import {MultiOwnable} from "../../lib/smart-wallet/src/MultiOwnable.sol";
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {MockImplementation} from "../mocks/MockImplementation.sol";
 
 contract DelegateTest is EIP7702ProxyBase {
-    bytes4 constant INITIALIZER = MockImplementation.initialize.selector;
-
     function setUp() public override {
         super.setUp();
 
-        // Initialize the proxy
+        // Initialize the proxy with implementation
         bytes memory initArgs = _createInitArgs(_newOwner);
         bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
-        EIP7702Proxy(_eoa).initialize(initArgs, signature, true);
+
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_implementation),
+            initArgs,
+            address(_validator),
+            signature,
+            true // Allow cross-chain replay for tests
+        );
     }
 
     function test_succeeds_whenReadingState() public {
@@ -44,15 +51,6 @@ contract DelegateTest is EIP7702ProxyBase {
         );
     }
 
-    function test_guardedInitializer_reverts_whenCalledDirectly(
-        bytes memory initData
-    ) public {
-        vm.assume(initData.length >= 4); // At least a function selector
-
-        vm.expectRevert(EIP7702Proxy.InvalidInitializer.selector);
-        address(_eoa).call(initData);
-    }
-
     function test_reverts_whenReadReverts() public {
         vm.expectRevert("MockRevert");
         MockImplementation(payable(_eoa)).revertingFunction();
@@ -63,7 +61,7 @@ contract DelegateTest is EIP7702ProxyBase {
         vm.assume(unauthorized != _newOwner); // Not the owner
 
         vm.prank(unauthorized);
-        vm.expectRevert(MockImplementation.Unauthorized.selector);
+        vm.expectRevert(MultiOwnable.Unauthorized.selector);
         MockImplementation(payable(_eoa)).mockFunction();
 
         assertFalse(
@@ -73,16 +71,19 @@ contract DelegateTest is EIP7702ProxyBase {
     }
 
     function test_continues_delegating_afterUpgrade() public {
-        // Setup will have already initialized the proxy with initial implementation and an owner
-
         // Deploy a new implementation
         MockImplementation newImplementation = new MockImplementation();
 
+        // Create signature for upgrade
+        bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, "");
+
         // Upgrade to the new implementation
-        vm.prank(_newOwner);
-        MockImplementation(_eoa).upgradeToAndCall(
+        EIP7702Proxy(_eoa).setImplementation(
             address(newImplementation),
-            ""
+            "", // no init data needed
+            address(_validator),
+            signature,
+            true
         );
 
         // Verify the implementation was changed
@@ -103,7 +104,6 @@ contract DelegateTest is EIP7702ProxyBase {
         );
     }
 
-    // Add a specific test for ETH transfers
     function test_allows_ethTransfersBeforeInitialization() public {
         // Deploy a fresh proxy without initializing it
         address payable uninitProxy = payable(makeAddr("uninitProxy"));

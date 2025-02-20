@@ -3,6 +3,8 @@ pragma solidity ^0.8.23;
 
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
 import {NonceTracker} from "../../src/NonceTracker.sol";
+import {DefaultReceiver} from "../../src/DefaultReceiver.sol";
+import {CoinbaseSmartWalletValidator} from "../../src/validators/CoinbaseSmartWalletValidator.sol";
 
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
@@ -29,32 +31,41 @@ abstract contract EIP7702ProxyBase is Test {
     EIP7702Proxy internal _proxy;
     MockImplementation internal _implementation;
     NonceTracker internal _nonceTracker;
-
-    /// @dev Function selector for initialization
-    bytes4 internal _initSelector;
+    DefaultReceiver internal _receiver;
+    CoinbaseSmartWalletValidator internal _validator;
 
     function setUp() public virtual {
         // Set up test accounts
         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
-        // Deploy implementation and nonce tracker
+        // Deploy core contracts
         _implementation = new MockImplementation();
         _nonceTracker = new NonceTracker();
-        _initSelector = MockImplementation.initialize.selector;
+        _receiver = new DefaultReceiver();
+        _validator = new CoinbaseSmartWalletValidator();
 
-        // Deploy proxy normally first to get the correct immutable values
-        _proxy = new EIP7702Proxy(
-            address(_implementation),
-            _initSelector,
-            _nonceTracker
-        );
+        // Deploy proxy with receiver and nonce tracker
+        _proxy = new EIP7702Proxy(_nonceTracker, _receiver);
 
         // Get the proxy's runtime code
         bytes memory proxyCode = address(_proxy).code;
 
         // Etch the proxy code at the EOA's address to simulate EIP-7702 upgrade
         vm.etch(_eoa, proxyCode);
+
+        // Initialize the proxy with implementation
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory signature = _signInitData(_EOA_PRIVATE_KEY, initArgs);
+
+        // Set implementation and initialize
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_implementation),
+            initArgs,
+            address(_validator),
+            signature,
+            true // Allow cross-chain replay for tests
+        );
     }
 
     /**
@@ -67,17 +78,22 @@ abstract contract EIP7702ProxyBase is Test {
         uint256 signerPk,
         bytes memory initArgs
     ) internal view returns (bytes memory) {
-        bytes32 _INITIALIZATION_TYPEHASH = keccak256(
-            "EIP7702ProxyInitialization(uint256 chainId,address proxy,uint256 nonce,bytes args)"
+        /// @notice Typehash for setting implementation
+        bytes32 _IMPLEMENTATION_SET_TYPEHASH = keccak256(
+            "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes32 initData,address validator)"
         );
+
         uint256 nonce = _nonceTracker.nonces(_eoa);
         bytes32 initHash = keccak256(
             abi.encode(
-                _INITIALIZATION_TYPEHASH,
-                0,
+                _IMPLEMENTATION_SET_TYPEHASH,
+                0, // chainId 0 for cross-chain
                 _proxy,
                 nonce,
-                keccak256(initArgs)
+                address(0), // current implementation is 0
+                address(_implementation),
+                keccak256(initArgs),
+                address(_validator)
             )
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
@@ -92,7 +108,14 @@ abstract contract EIP7702ProxyBase is Test {
     function _createInitArgs(
         address owner
     ) internal pure returns (bytes memory) {
-        return abi.encode(owner);
+        // Create the owners array with a single owner
+        bytes[] memory owners = new bytes[](1);
+        owners[0] = abi.encode(owner);
+        bytes memory ownerArgs = abi.encode(owners);
+
+        // Encode the complete function call: initialize(bytes[])
+        return
+            abi.encodePacked(MockImplementation.initialize.selector, ownerArgs);
     }
 
     /**
