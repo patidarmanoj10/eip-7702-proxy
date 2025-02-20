@@ -1,275 +1,294 @@
-// // SPDX-License-Identifier: UNLICENSED
-// pragma solidity ^0.8.23;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.23;
 
-// import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
-// import {NonceTracker} from "../../src/NonceTracker.sol";
+import {CoinbaseSmartWallet} from "../../lib/smart-wallet/src/CoinbaseSmartWallet.sol";
 
-// import {CoinbaseSmartWallet} from "../../lib/smart-wallet/src/CoinbaseSmartWallet.sol";
-// import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
+import {NonceTracker} from "../../src/NonceTracker.sol";
+import {DefaultReceiver} from "../../src/DefaultReceiver.sol";
+import {CoinbaseSmartWalletValidator} from "../../src/validators/CoinbaseSmartWalletValidator.sol";
 
-// import {Test} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
-// import {DefaultReceiver} from "../../src/DefaultReceiver.sol";
-// import {CoinbaseSmartWalletValidator} from "../../src/validators/CoinbaseSmartWalletValidator.sol";
+/**
+ * @title CoinbaseImplementationTest
+ * @dev Tests specific to the CoinbaseSmartWallet implementation
+ */
+contract CoinbaseImplementationTest is Test {
+    uint256 constant _EOA_PRIVATE_KEY = 0xA11CE;
+    address payable _eoa;
 
-// /**
-//  * @title CoinbaseImplementationTest
-//  * @dev Tests specific to the CoinbaseSmartWallet implementation
-//  */
-// contract CoinbaseImplementationTest is Test {
-//     uint256 constant _EOA_PRIVATE_KEY = 0xA11CE;
-//     address payable _eoa;
+    uint256 constant _NEW_OWNER_PRIVATE_KEY = 0xB0B;
+    address payable _newOwner;
 
-//     uint256 constant _NEW_OWNER_PRIVATE_KEY = 0xB0B;
-//     address payable _newOwner;
+    CoinbaseSmartWallet _wallet;
+    CoinbaseSmartWallet _cbswImplementation;
 
-//     CoinbaseSmartWallet wallet;
-//     CoinbaseSmartWallet implementation;
-//     EIP7702Proxy proxy;
-//     bytes4 initSelector;
-//     NonceTracker nonceTracker;
+    // core contracts
+    EIP7702Proxy _proxy;
+    NonceTracker _nonceTracker;
+    DefaultReceiver _receiver;
+    CoinbaseSmartWalletValidator _cbswValidator;
 
-//     bytes4 constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
-//     bytes4 constant ERC1271_FAIL_VALUE = 0xffffffff;
+    // constants
+    bytes4 constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
+    bytes4 constant ERC1271_FAIL_VALUE = 0xffffffff;
 
-//     // Add new variables
-//     DefaultReceiver receiver;
-//     CoinbaseSmartWalletValidator validator;
+    /// @dev Storage slot with the address of the current implementation (ERC1967)
+    bytes32 internal constant _IMPLEMENTATION_SLOT =
+        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
-//     function setUp() public virtual {
-//         // Set up test accounts
-//         _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
-//         _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
+    bytes32 _IMPLEMENTATION_SET_TYPEHASH =
+        keccak256(
+            "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes32 initData,address validator)"
+        );
 
-//         // Deploy core contracts
-//         implementation = new CoinbaseSmartWallet();
-//         nonceTracker = new NonceTracker();
-//         receiver = new DefaultReceiver();
-//         validator = new CoinbaseSmartWalletValidator();
+    function setUp() public virtual {
+        // Set up test accounts
+        _eoa = payable(vm.addr(_EOA_PRIVATE_KEY));
+        _newOwner = payable(vm.addr(_NEW_OWNER_PRIVATE_KEY));
 
-//         // Deploy proxy with receiver and nonce tracker
-//         proxy = new EIP7702Proxy(nonceTracker, receiver);
+        // Deploy core contracts
+        _cbswImplementation = new CoinbaseSmartWallet();
+        _nonceTracker = new NonceTracker();
+        _receiver = new DefaultReceiver();
+        _cbswValidator = new CoinbaseSmartWalletValidator();
 
-//         // Etch proxy code at EOA address
-//         bytes memory proxyCode = address(proxy).code;
-//         vm.etch(_eoa, proxyCode);
+        // Deploy proxy with receiver and nonce tracker
+        _proxy = new EIP7702Proxy(_nonceTracker, _receiver);
 
-//         // Initialize with implementation
-//         bytes memory initArgs = _createInitArgs(_newOwner);
-//         bytes memory signature = _signSetImplementationData(
-//             _EOA_PRIVATE_KEY,
-//             initArgs
-//         );
+        // Get the proxy's runtime code
+        bytes memory proxyCode = address(_proxy).code;
 
-//         EIP7702Proxy(_eoa).setImplementation(
-//             address(implementation),
-//             initArgs,
-//             address(validator),
-//             signature,
-//             true // Allow cross-chain replay for tests
-//         );
+        // Etch the proxy code at the target address
+        vm.etch(_eoa, proxyCode);
+    }
 
-//         wallet = CoinbaseSmartWallet(payable(_eoa));
-//     }
+    // ======== Utility Functions ========
+    function _initializeProxy() internal {
+        // Initialize with implementation
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory signature = _signSetImplementationData(
+            _EOA_PRIVATE_KEY,
+            initArgs
+        );
 
-//     // ======== Utility Functions ========
-//     /**
-//      * @dev Creates initialization arguments for CoinbaseSmartWallet
-//      * @param owner Address to set as the initial owner
-//      * @return Encoded initialization arguments for CoinbaseSmartWallet
-//      */
-//     function _createInitArgs(
-//         address owner
-//     ) internal pure returns (bytes memory) {
-//         bytes[] memory owners = new bytes[](1);
-//         owners[0] = abi.encode(owner);
-//         return abi.encode(owners);
-//     }
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_cbswImplementation),
+            initArgs,
+            address(_cbswValidator),
+            signature,
+            true // Allow cross-chain replay for tests
+        );
 
-//     /**
-//      * @dev Signs initialization data for CoinbaseSmartWallet that will be verified by the proxy
-//      * @param signerPk Private key of the signer
-//      * @param initArgs Initialization arguments to sign
-//      * @return Signature bytes
-//      */
-//     function _signSetImplementationData(
-//         uint256 signerPk,
-//         bytes memory initArgs
-//     ) internal view returns (bytes memory) {
-//         bytes32 _IMPLEMENTATION_SET_TYPEHASH = keccak256(
-//             "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes32 initData,address validator)"
-//         );
+        _wallet = CoinbaseSmartWallet(payable(_eoa));
+    }
 
-//         bytes32 initHash = keccak256(
-//             abi.encode(
-//                 _IMPLEMENTATION_SET_TYPEHASH,
-//                 0, // chainId 0 for cross-chain
-//                 proxy,
-//                 nonceTracker.nonces(_eoa),
-//                 address(0), // current implementation is 0
-//                 address(implementation),
-//                 keccak256(initArgs),
-//                 address(validator)
-//             )
-//         );
-//         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
-//         return abi.encodePacked(r, s, v);
-//     }
+    /**
+     * @dev Creates initialization arguments for CoinbaseSmartWallet
+     * @param owner Address to set as the initial owner
+     * @return Encoded initialization arguments for CoinbaseSmartWallet
+     */
+    function _createInitArgs(
+        address owner
+    ) internal pure returns (bytes memory) {
+        bytes[] memory owners = new bytes[](1);
+        owners[0] = abi.encode(owner);
+        bytes memory ownerArgs = abi.encode(owners);
+        return
+            abi.encodePacked(
+                CoinbaseSmartWallet.initialize.selector,
+                ownerArgs
+            );
+    }
 
-//     /**
-//      * @dev Helper to create ECDSA signatures
-//      * @param pk Private key to sign with
-//      * @param hash Message hash to sign
-//      * @return signature Encoded signature bytes
-//      */
-//     function _sign(
-//         uint256 pk,
-//         bytes32 hash
-//     ) internal pure returns (bytes memory signature) {
-//         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, hash);
-//         return abi.encodePacked(r, s, v);
-//     }
+    /**
+     * @dev Signs initialization data for CoinbaseSmartWallet that will be verified by the proxy
+     * @param signerPk Private key of the signer
+     * @param initArgs Initialization arguments to sign
+     * @return Signature bytes
+     */
+    function _signSetImplementationData(
+        uint256 signerPk,
+        bytes memory initArgs
+    ) internal view returns (bytes memory) {
+        bytes32 initHash = keccak256(
+            abi.encode(
+                _IMPLEMENTATION_SET_TYPEHASH,
+                0, // chainId 0 for cross-chain
+                _proxy,
+                _nonceTracker.nonces(_eoa),
+                _getERC1967Implementation(address(_eoa)),
+                address(_cbswImplementation),
+                keccak256(initArgs),
+                address(_cbswValidator)
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
+        return abi.encodePacked(r, s, v);
+    }
 
-//     /**
-//      * @dev Creates a signature from a wallet owner for CoinbaseSmartWallet validation
-//      * @param message Message to sign
-//      * @param smartWallet Address of the wallet contract
-//      * @param ownerPk Private key of the owner
-//      * @param ownerIndex Index of the owner in the wallet's owner list
-//      * @return Wrapped signature bytes
-//      */
-//     function _createOwnerSignature(
-//         bytes32 message,
-//         address smartWallet,
-//         uint256 ownerPk,
-//         uint256 ownerIndex
-//     ) internal view returns (bytes memory) {
-//         bytes32 replaySafeHash = CoinbaseSmartWallet(payable(smartWallet))
-//             .replaySafeHash(message);
-//         bytes memory signature = _sign(ownerPk, replaySafeHash);
-//         return _applySignatureWrapper(ownerIndex, signature);
-//     }
+    /**
+     * @dev Helper to read the implementation address from ERC1967 storage slot
+     * @param proxy Address of the proxy contract to read from
+     * @return The implementation address stored in the ERC1967 slot
+     */
+    function _getERC1967Implementation(
+        address proxy
+    ) internal view returns (address) {
+        return address(uint160(uint256(vm.load(proxy, _IMPLEMENTATION_SLOT))));
+    }
 
-//     /**
-//      * @dev Wraps a signature with owner index for CoinbaseSmartWallet validation
-//      * @param ownerIndex Index of the owner in the wallet's owner list
-//      * @param signatureData Raw signature bytes to wrap
-//      * @return Encoded signature wrapper
-//      */
-//     function _applySignatureWrapper(
-//         uint256 ownerIndex,
-//         bytes memory signatureData
-//     ) internal pure returns (bytes memory) {
-//         return
-//             abi.encode(
-//                 CoinbaseSmartWallet.SignatureWrapper(ownerIndex, signatureData)
-//             );
-//     }
+    /**
+     * @dev Helper to create ECDSA signatures
+     * @param pk Private key to sign with
+     * @param hash Message hash to sign
+     * @return signature Encoded signature bytes
+     */
+    function _sign(
+        uint256 pk,
+        bytes32 hash
+    ) internal pure returns (bytes memory signature) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, hash);
+        return abi.encodePacked(r, s, v);
+    }
 
-//     /**
-//      * @dev Helper to deploy a proxy and etch its code at a target address
-//      * @param target The address where the proxy code should be etched
-//      */
-//     function _deployProxy(address target) internal {
-//         // Get the proxy's runtime code
-//         bytes memory proxyCode = address(proxy).code;
+    /**
+     * @dev Creates a signature from a wallet owner for CoinbaseSmartWallet validation
+     * @param message Message to sign
+     * @param smartWallet Address of the wallet contract
+     * @param ownerPk Private key of the owner
+     * @param ownerIndex Index of the owner in the wallet's owner list
+     * @return Wrapped signature bytes
+     */
+    function _createOwnerSignature(
+        bytes32 message,
+        address smartWallet,
+        uint256 ownerPk,
+        uint256 ownerIndex
+    ) internal view returns (bytes memory) {
+        bytes32 replaySafeHash = CoinbaseSmartWallet(payable(smartWallet))
+            .replaySafeHash(message);
+        bytes memory signature = _sign(ownerPk, replaySafeHash);
+        return _applySignatureWrapper(ownerIndex, signature);
+    }
 
-//         // Etch the proxy code at the target address
-//         vm.etch(target, proxyCode);
-//     }
+    /**
+     * @dev Wraps a signature with owner index for CoinbaseSmartWallet validation
+     * @param ownerIndex Index of the owner in the wallet's owner list
+     * @param signatureData Raw signature bytes to wrap
+     * @return Encoded signature wrapper
+     */
+    function _applySignatureWrapper(
+        uint256 ownerIndex,
+        bytes memory signatureData
+    ) internal pure returns (bytes memory) {
+        return
+            abi.encode(
+                CoinbaseSmartWallet.SignatureWrapper(ownerIndex, signatureData)
+            );
+    }
 
-//     // ======== Tests ========
-//     function test_initialize_setsOwner() public {
-//         assertTrue(
-//             wallet.isOwnerAddress(_newOwner),
-//             "New owner should be owner after initialization"
-//         );
-//     }
+    // ======== Tests ========
+    function test_initialize_setsOwner() public {
+        _initializeProxy();
+        assertTrue(
+            _wallet.isOwnerAddress(_newOwner),
+            "New owner should be owner after initialization"
+        );
+    }
 
-//     function test_isValidSignature_succeeds_withValidOwnerSignature(
-//         bytes32 message
-//     ) public {
-//         assertTrue(
-//             wallet.isOwnerAddress(_newOwner),
-//             "New owner should be owner after initialization"
-//         );
-//         assertEq(
-//             wallet.ownerAtIndex(0),
-//             abi.encode(_newOwner),
-//             "Owner at index 0 should be new owner"
-//         );
+    function test_isValidSignature_succeeds_withValidOwnerSignature(
+        bytes32 message
+    ) public {
+        _initializeProxy();
+        assertTrue(
+            _wallet.isOwnerAddress(_newOwner),
+            "New owner should be owner after initialization"
+        );
+        assertEq(
+            _wallet.ownerAtIndex(0),
+            abi.encode(_newOwner),
+            "Owner at index 0 should be new owner"
+        );
 
-//         bytes memory signature = _createOwnerSignature(
-//             message,
-//             address(wallet),
-//             _NEW_OWNER_PRIVATE_KEY,
-//             0 // First owner
-//         );
+        bytes memory signature = _createOwnerSignature(
+            message,
+            address(_wallet),
+            _NEW_OWNER_PRIVATE_KEY,
+            0 // First owner
+        );
 
-//         bytes4 result = wallet.isValidSignature(message, signature);
-//         assertEq(
-//             result,
-//             ERC1271_MAGIC_VALUE,
-//             "Should accept valid contract owner signature"
-//         );
-//     }
+        bytes4 result = _wallet.isValidSignature(message, signature);
+        assertEq(
+            result,
+            ERC1271_MAGIC_VALUE,
+            "Should accept valid contract owner signature"
+        );
+    }
 
-//     function test_execute_transfersEth_whenCalledByOwner(
-//         address recipient,
-//         uint256 amount
-//     ) public {
-//         vm.assume(recipient != address(0));
-//         vm.assume(recipient != address(_eoa));
-//         assumeNotPrecompile(recipient);
-//         assumePayable(recipient);
-//         vm.assume(amount > 0 && amount <= 100 ether);
+    function test_execute_transfersEth_whenCalledByOwner(
+        address recipient,
+        uint256 amount
+    ) public {
+        vm.assume(recipient != address(0));
+        vm.assume(recipient != address(_eoa));
+        assumeNotPrecompile(recipient);
+        assumePayable(recipient);
+        vm.assume(amount > 0 && amount <= 100 ether);
 
-//         vm.deal(address(_eoa), amount);
-//         vm.deal(recipient, 0);
+        _initializeProxy();
 
-//         vm.prank(_newOwner);
-//         wallet.execute(
-//             payable(recipient),
-//             amount,
-//             "" // empty calldata for simple transfer
-//         );
+        vm.deal(address(_eoa), amount);
+        vm.deal(recipient, 0);
 
-//         assertEq(
-//             recipient.balance,
-//             amount,
-//             "Coinbase wallet execute should transfer ETH"
-//         );
-//     }
+        vm.prank(_newOwner);
+        _wallet.execute(
+            payable(recipient),
+            amount,
+            "" // empty calldata for simple transfer
+        );
 
-//     function test_upgradeToAndCall_reverts_whenCalledByNonOwner(
-//         address nonOwner
-//     ) public {
-//         vm.assume(nonOwner != address(0));
-//         vm.assume(nonOwner != _newOwner); // Ensure caller isn't the actual owner
-//         vm.assume(nonOwner != _eoa); // Ensure caller isn't the EOA address
+        assertEq(
+            recipient.balance,
+            amount,
+            "Coinbase wallet execute should transfer ETH"
+        );
+    }
 
-//         address newImpl = address(new CoinbaseSmartWallet());
+    function test_upgradeToAndCall_reverts_whenCalledByNonOwner(
+        address nonOwner
+    ) public {
+        _initializeProxy();
 
-//         vm.prank(nonOwner);
-//         vm.expectRevert(); // Coinbase wallet specific access control
-//         wallet.upgradeToAndCall(newImpl, "");
-//     }
+        vm.assume(nonOwner != address(0));
+        vm.assume(nonOwner != _newOwner); // Ensure caller isn't the actual owner
+        vm.assume(nonOwner != _eoa); // Ensure caller isn't the EOA address
 
-//     function test_initialize_reverts_whenCalledTwice() public {
-//         bytes memory initArgs = _createInitArgs(_newOwner);
-//         bytes memory signature = _signSetImplementationData(
-//             _EOA_PRIVATE_KEY,
-//             initArgs
-//         );
+        address newImpl = address(new CoinbaseSmartWallet());
 
-//         // Try to initialize again
-//         vm.expectRevert(CoinbaseSmartWallet.Initialized.selector);
-//         EIP7702Proxy(_eoa).setImplementation(
-//             address(implementation),
-//             initArgs,
-//             address(validator),
-//             signature,
-//             true
-//         );
-//     }
-// }
+        vm.prank(nonOwner);
+        vm.expectRevert(); // Coinbase wallet specific access control
+        _wallet.upgradeToAndCall(newImpl, "");
+    }
+
+    function test_initialize_reverts_whenCalledTwice() public {
+        _initializeProxy();
+
+        // Try to initialize again with fresh signature
+        bytes memory initArgs = _createInitArgs(_newOwner);
+        bytes memory signature = _signSetImplementationData(
+            _EOA_PRIVATE_KEY,
+            initArgs
+        );
+
+        vm.expectRevert(CoinbaseSmartWallet.Initialized.selector);
+        EIP7702Proxy(_eoa).setImplementation(
+            address(_cbswImplementation),
+            initArgs,
+            address(_cbswValidator),
+            signature,
+            true
+        );
+    }
+}
