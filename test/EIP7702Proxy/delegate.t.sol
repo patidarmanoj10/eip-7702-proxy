@@ -96,6 +96,13 @@ contract DelegateTest is EIP7702ProxyBase {
         address payable uninitProxy = payable(makeAddr("uninitProxy"));
         _deployProxy(uninitProxy);
 
-        uninitProxy.call(data);
+        // Try to make the call and capture the result
+        (bool success,) = uninitProxy.call(data);
+
+        // The call should fail since the proxy is uninitialized and the data is non-empty
+        assertFalse(success, "Call with arbitrary data should fail on uninitialized proxy");
+
+        vm.expectRevert();
+        (success,) = uninitProxy.call(data);
     }
 }

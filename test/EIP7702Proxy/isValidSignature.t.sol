@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.23;
 
+import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+
 import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
 import {NonceTracker} from "../../src/NonceTracker.sol";
 import {DefaultReceiver} from "../../src/DefaultReceiver.sol";
-
-import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {
@@ -15,11 +15,11 @@ import {
     MockImplementationWithExtraData
 } from "../mocks/MockImplementation.sol";
 import {MockValidator} from "../mocks/MockValidator.sol";
+
 /**
  * @title IsValidSignatureTestBase
  * @dev Base contract for testing ERC-1271 isValidSignature behavior
  */
-
 abstract contract IsValidSignatureTestBase is EIP7702ProxyBase {
     bytes4 constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
     bytes4 constant ERC1271_FAIL_VALUE = 0xffffffff;

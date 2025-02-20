@@ -4,7 +4,9 @@ pragma solidity ^0.8.23;
 import {Receiver} from "solady/accounts/Receiver.sol";
 
 /// @title DefaultReceiver
+///
 /// @notice A concrete implementation of Solady's Receiver contract
+///
 /// @dev Handles ETH, ERC721, and ERC1155 token transfers
 contract DefaultReceiver is Receiver {
 // We don't need to override any functions since the base contract
