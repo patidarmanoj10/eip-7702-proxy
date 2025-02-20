@@ -141,14 +141,12 @@ abstract contract EIP7702ProxyBase is Test {
     function _createInitArgs(
         address owner
     ) internal pure returns (bytes memory) {
-        // Create the owners array with a single owner
-        bytes[] memory owners = new bytes[](1);
-        owners[0] = abi.encode(owner);
-        bytes memory ownerArgs = abi.encode(owners);
-
-        // Encode the complete function call: initialize(bytes[])
+        // Encode the complete function call: initialize(address)
         return
-            abi.encodePacked(MockImplementation.initialize.selector, ownerArgs);
+            abi.encodeWithSelector(
+                MockImplementation.initialize.selector,
+                owner
+            );
     }
 
     /**
