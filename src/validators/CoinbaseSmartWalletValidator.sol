@@ -12,7 +12,7 @@ contract CoinbaseSmartWalletValidator is IWalletValidator {
 
     /// @notice Validates that a Coinbase Smart Wallet has at least one owner
     /// @param wallet The address of the wallet to validate
-    function validateWallet(address wallet) external view override {
+    function validateWalletState(address wallet) external view override {
         // Cast to MultiOwnable to check owner count
         MultiOwnable walletContract = MultiOwnable(wallet);
 

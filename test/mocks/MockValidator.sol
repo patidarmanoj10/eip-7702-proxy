@@ -15,7 +15,7 @@ contract MockValidator is IWalletValidator {
      * @dev Validates that the wallet is initialized
      * @param wallet Address of the wallet to validate
      */
-    function validateWallet(address wallet) external view {
+    function validateWalletState(address wallet) external view {
         bool isInitialized = MockImplementation(wallet).initialized();
         if (!isInitialized) revert WalletNotInitialized();
     }

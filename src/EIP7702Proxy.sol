@@ -24,7 +24,7 @@ contract EIP7702Proxy is Proxy {
 
     /// @notice Typehash for setting implementation
     bytes32 internal constant _IMPLEMENTATION_SET_TYPEHASH = keccak256(
-        "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes32 initData,address validator)"
+        "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes callData,address validator)"
     );
 
     /// @notice A default implementation that allows this address to receive tokens before initialization
@@ -59,19 +59,19 @@ contract EIP7702Proxy is Proxy {
         _PROXY = address(this);
     }
 
-    /// @notice Sets the ERC-1967 implementation slot after signature verification and optionally executes calldata on the new implementation.
+    /// @notice Sets the ERC-1967 implementation slot after signature verification and optionally executes `callData` on the `newImplementation`
     ///
-    /// @dev Validates resulting wallet state after upgrade by calling `validateWallet` on the supplied validator contract
+    /// @dev Validates resulting wallet state after upgrade by calling `validateWalletState` on the supplied validator contract
     /// @dev Signature must be from the EOA's address
     ///
     /// @param newImplementation The implementation address to set
-    /// @param initData Optional calldata to call on new implementation
+    /// @param callData Optional calldata to call on new implementation
     /// @param validator The address of the validator contract
     /// @param signature The EOA signature authorizing this change
     /// @param allowCrossChainReplay use a chain-agnostic or chain-specific hash
     function setImplementation(
         address newImplementation,
-        bytes calldata initData,
+        bytes calldata callData,
         address validator,
         bytes calldata signature,
         bool allowCrossChainReplay
@@ -85,7 +85,7 @@ contract EIP7702Proxy is Proxy {
                 NONCE_TRACKER.useNonce(),
                 ERC1967Utils.getImplementation(),
                 newImplementation,
-                keccak256(initData),
+                keccak256(callData),
                 validator
             )
         );
@@ -95,10 +95,10 @@ contract EIP7702Proxy is Proxy {
         if (signer != address(this)) revert InvalidSignature();
 
         // Reset the implementation slot and call initialization if provided
-        ERC1967Utils.upgradeToAndCall(newImplementation, initData);
+        ERC1967Utils.upgradeToAndCall(newImplementation, callData);
 
         // Validate wallet state after upgrade, reverting if invalid
-        IWalletValidator(validator).validateWallet(address(this));
+        IWalletValidator(validator).validateWalletState(address(this));
     }
 
     /// @notice Handles ERC-1271 signature validation by enforcing a final `ecrecover` check if signatures fail `isValidSignature` check

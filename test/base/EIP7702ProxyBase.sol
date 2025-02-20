@@ -19,7 +19,7 @@ abstract contract EIP7702ProxyBase is Test {
     bytes32 internal constant IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
     bytes32 internal constant _IMPLEMENTATION_SET_TYPEHASH = keccak256(
-        "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes32 initData,address validator)"
+        "EIP7702ProxyImplementationSet(uint256 chainId,address proxy,uint256 nonce,address currentImplementation,address newImplementation,bytes callData,address validator)"
     );
 
     /// @dev Test account private keys and addresses
@@ -82,14 +82,14 @@ abstract contract EIP7702ProxyBase is Test {
      * @param signerPk Private key of the signer
      * @param newImplementationAddress New implementation contract address
      * @param chainId Chain ID for the signature
-     * @param initData Initialization data for the implementation
+     * @param callData Initialization data for the implementation
      * @return Signature bytes
      */
     function _signSetImplementationData(
         uint256 signerPk,
         address newImplementationAddress,
         uint256 chainId,
-        bytes memory initData
+        bytes memory callData
     ) internal view returns (bytes memory) {
         uint256 nonce = _nonceTracker.nonces(_eoa);
         address currentImpl = _getERC1967Implementation(_eoa);
@@ -102,7 +102,7 @@ abstract contract EIP7702ProxyBase is Test {
                 nonce,
                 currentImpl,
                 newImplementationAddress,
-                keccak256(initData),
+                keccak256(callData),
                 address(_validator)
             )
         );

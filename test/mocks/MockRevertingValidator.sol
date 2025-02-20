@@ -15,7 +15,7 @@ contract MockRevertingValidator is IWalletValidator {
      * @dev Reverts
      * @param wallet Address of the wallet to validate
      */
-    function validateWallet(address wallet) external view {
+    function validateWalletState(address wallet) external view {
         revert AlwaysReverts();
     }
 }
