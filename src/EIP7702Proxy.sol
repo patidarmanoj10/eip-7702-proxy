@@ -4,12 +4,11 @@ pragma solidity ^0.8.23;
 import {Proxy} from "openzeppelin-contracts/contracts/proxy/Proxy.sol";
 import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {console2} from "forge-std/console2.sol";
+import {Receiver} from "solady/accounts/Receiver.sol";
 
 import {NonceTracker} from "./NonceTracker.sol";
-import {IWalletValidator} from "./interfaces/IWalletValidator.sol";
-import {Receiver} from "solady/accounts/Receiver.sol";
 import {DefaultReceiver} from "./DefaultReceiver.sol";
+import {IWalletValidator} from "./interfaces/IWalletValidator.sol";
 
 /// @title EIP7702Proxy
 ///
@@ -91,14 +90,8 @@ contract EIP7702Proxy is Proxy {
             )
         );
 
-        // Log the values used in signature verification
-        console2.log("Contract: Hash to verify:", uint256(hash));
-        console2.log("Contract: Expected signer:", address(this));
-
         // Verify signature is from this address (the EOA)
         address signer = ECDSA.recover(hash, signature);
-        console2.log("Contract: Recovered signer:", signer);
-
         if (signer != address(this)) revert InvalidSignature();
 
         // Reset the implementation slot and call initialization if provided

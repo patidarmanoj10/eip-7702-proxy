@@ -8,7 +8,6 @@ import {MockValidator} from "../mocks/MockValidator.sol";
 
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
 import {MockImplementation} from "../mocks/MockImplementation.sol";
 
 /**
@@ -95,23 +94,6 @@ abstract contract EIP7702ProxyBase is Test {
         uint256 nonce = _nonceTracker.nonces(_eoa);
         address currentImpl = _getERC1967Implementation(_eoa);
 
-        // Log all values going into the hash
-        console2.log("Test: Signing with values:");
-        console2.log("  chainId:");
-        console2.logUint(0);
-        console2.log("  proxy:");
-        console2.logAddress(address(_proxy));
-        console2.log("  nonce:");
-        console2.logUint(nonce);
-        console2.log("  currentImpl:");
-        console2.logAddress(currentImpl);
-        console2.log("  newImpl:");
-        console2.logAddress(newImplementationAddress);
-        console2.log("  initDataHash:");
-        console2.logBytes32(keccak256(initData));
-        console2.log("  validator:");
-        console2.logAddress(address(_validator));
-
         bytes32 initHash = keccak256(
             abi.encode(
                 _IMPLEMENTATION_SET_TYPEHASH,
@@ -124,8 +106,6 @@ abstract contract EIP7702ProxyBase is Test {
                 address(_validator)
             )
         );
-
-        console2.log("Test: Hash being signed:", uint256(initHash));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, initHash);
         return abi.encodePacked(r, s, v);

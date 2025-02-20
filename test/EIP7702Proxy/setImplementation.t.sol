@@ -11,7 +11,6 @@ import {IERC1967} from "openzeppelin-contracts/contracts/interfaces/IERC1967.sol
 import {EIP7702ProxyBase} from "../base/EIP7702ProxyBase.sol";
 import {MockImplementation} from "../mocks/MockImplementation.sol";
 import {MockRevertingValidator} from "../mocks/MockRevertingValidator.sol";
-import {console2} from "forge-std/console2.sol";
 
 contract SetImplementationTest is EIP7702ProxyBase {
     MockImplementation _newImplementation;
