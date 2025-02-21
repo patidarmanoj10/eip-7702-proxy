@@ -2,11 +2,11 @@
 pragma solidity ^0.8.23;
 
 import {Test} from "forge-std/Test.sol";
-import {CoinbaseSmartWallet} from "../../lib/smart-wallet/src/CoinbaseSmartWallet.sol";
-import {EIP7702Proxy} from "../../src/EIP7702Proxy.sol";
-import {NonceTracker} from "../../src/NonceTracker.sol";
-import {DefaultReceiver} from "../../src/DefaultReceiver.sol";
-import {CoinbaseSmartWalletValidator} from "../../src/validators/CoinbaseSmartWalletValidator.sol";
+import {CoinbaseSmartWallet} from "../lib/smart-wallet/src/CoinbaseSmartWallet.sol";
+import {EIP7702Proxy} from "../src/EIP7702Proxy.sol";
+import {NonceTracker} from "../src/NonceTracker.sol";
+import {DefaultReceiver} from "../src/DefaultReceiver.sol";
+import {CoinbaseSmartWalletValidator} from "../src/validators/CoinbaseSmartWalletValidator.sol";
 
 contract CoinbaseSmartWalletValidatorTest is Test {
     uint256 constant _EOA_PRIVATE_KEY = 0xA11CE;
