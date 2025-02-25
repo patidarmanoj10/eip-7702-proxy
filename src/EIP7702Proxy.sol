@@ -28,13 +28,13 @@ contract EIP7702Proxy is Proxy {
     );
 
     /// @notice A default implementation that allows this address to receive tokens before initialization
-    Receiver public immutable RECEIVER;
+    Receiver public immutable receiver;
 
     /// @notice Address of the global nonce tracker for initialization
-    NonceTracker public immutable NONCE_TRACKER;
+    NonceTracker public immutable nonceTracker;
 
     /// @notice Address of this proxy contract delegate
-    address internal immutable _PROXY;
+    address internal immutable _proxy;
 
     /// @notice Constructor arguments are zero
     error ZeroValueConstructorArguments();
@@ -54,9 +54,9 @@ contract EIP7702Proxy is Proxy {
             revert ZeroValueConstructorArguments();
         }
 
-        NONCE_TRACKER = nonceTracker;
-        RECEIVER = receiver;
-        _PROXY = address(this);
+        nonceTracker = nonceTracker;
+        receiver = receiver;
+        _proxy = address(this);
     }
 
     /// @notice Sets the ERC-1967 implementation slot after signature verification and optionally executes `callData` on the `newImplementation`
@@ -81,8 +81,8 @@ contract EIP7702Proxy is Proxy {
             abi.encode(
                 _IMPLEMENTATION_SET_TYPEHASH,
                 allowCrossChainReplay ? 0 : block.chainid,
-                _PROXY,
-                NONCE_TRACKER.useNonce(),
+                _proxy,
+                nonceTracker.useNonce(),
                 ERC1967Utils.getImplementation(),
                 newImplementation,
                 keccak256(callData),
@@ -137,6 +137,6 @@ contract EIP7702Proxy is Proxy {
     /// @return implementation The implementation address for this proxy
     function _implementation() internal view override returns (address) {
         address implementation = ERC1967Utils.getImplementation();
-        return implementation == address(0) ? address(RECEIVER) : implementation;
+        return implementation == address(0) ? address(receiver) : implementation;
     }
 }
