@@ -2,14 +2,17 @@
 pragma solidity ^0.8.23;
 
 import {IAccountStateValidator} from "../../src/interfaces/IAccountStateValidator.sol";
-import {MockImplementation} from "./MockImplementation.sol";
 
 /// @title MockRevertingValidator
 /// @dev Mock validator that always reverts
 contract MockRevertingValidator is IAccountStateValidator {
-    error AlwaysReverts();
+    error InvalidValidation();
 
-    function validateAccountState(address) external pure {
-        revert AlwaysReverts();
+    function supportedImplementation() external view returns (address) {
+        return address(0);
+    }
+
+    function validateAccountState(address, address) external pure returns (bytes4) {
+        revert InvalidValidation();
     }
 }
