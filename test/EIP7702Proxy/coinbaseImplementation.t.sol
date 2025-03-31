@@ -9,6 +9,7 @@ import {DefaultReceiver} from "../../src/DefaultReceiver.sol";
 import {CoinbaseSmartWalletValidator} from "../../src/validators/CoinbaseSmartWalletValidator.sol";
 
 import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
 
 /**
  * @title CoinbaseImplementationTest
@@ -84,7 +85,9 @@ contract CoinbaseImplementationTest is Test {
      * @param owner Address to set as the initial owner
      * @return Encoded initialization arguments for CoinbaseSmartWallet
      */
-    function _createInitArgs(address owner) internal pure returns (bytes memory) {
+    function _createInitArgs(
+        address owner
+    ) internal pure returns (bytes memory) {
         bytes[] memory owners = new bytes[](1);
         owners[0] = abi.encode(owner);
         bytes memory ownerArgs = abi.encode(owners);
@@ -129,7 +132,10 @@ contract CoinbaseImplementationTest is Test {
      * @param hash Message hash to sign
      * @return signature Encoded signature bytes
      */
-    function _sign(uint256 pk, bytes32 hash) internal pure returns (bytes memory signature) {
+    function _sign(
+        uint256 pk,
+        bytes32 hash
+    ) internal pure returns (bytes memory signature) {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, hash);
         return abi.encodePacked(r, s, v);
     }
@@ -142,12 +148,14 @@ contract CoinbaseImplementationTest is Test {
      * @param ownerIndex Index of the owner in the wallet's owner list
      * @return Wrapped signature bytes
      */
-    function _createOwnerSignature(bytes32 message, address smartWallet, uint256 ownerPk, uint256 ownerIndex)
-        internal
-        view
-        returns (bytes memory)
-    {
-        bytes32 replaySafeHash = CoinbaseSmartWallet(payable(smartWallet)).replaySafeHash(message);
+    function _createOwnerSignature(
+        bytes32 message,
+        address smartWallet,
+        uint256 ownerPk,
+        uint256 ownerIndex
+    ) internal view returns (bytes memory) {
+        bytes32 replaySafeHash = CoinbaseSmartWallet(payable(smartWallet))
+            .replaySafeHash(message);
         bytes memory signature = _sign(ownerPk, replaySafeHash);
         return _applySignatureWrapper(ownerIndex, signature);
     }
@@ -158,12 +166,14 @@ contract CoinbaseImplementationTest is Test {
      * @param signatureData Raw signature bytes to wrap
      * @return Encoded signature wrapper
      */
-    function _applySignatureWrapper(uint256 ownerIndex, bytes memory signatureData)
-        internal
-        pure
-        returns (bytes memory)
-    {
-        return abi.encode(CoinbaseSmartWallet.SignatureWrapper(ownerIndex, signatureData));
+    function _applySignatureWrapper(
+        uint256 ownerIndex,
+        bytes memory signatureData
+    ) internal pure returns (bytes memory) {
+        return
+            abi.encode(
+                CoinbaseSmartWallet.SignatureWrapper(ownerIndex, signatureData)
+            );
     }
 
     // ======== Tests ========
@@ -188,7 +198,10 @@ contract CoinbaseImplementationTest is Test {
         assertEq(result, ERC1271_MAGIC_VALUE, "Should accept valid contract owner signature");
     }
 
-    function test_execute_transfersEth_whenCalledByOwner(address recipient, uint256 amount) public {
+    function test_execute_transfersEth_whenCalledByOwner(
+        address recipient,
+        uint256 amount
+    ) public {
         vm.assume(recipient != address(0));
         vm.assume(recipient != address(_eoa));
         assumeNotPrecompile(recipient);
@@ -198,6 +211,8 @@ contract CoinbaseImplementationTest is Test {
         _initializeProxy();
 
         vm.deal(address(_eoa), amount);
+        console.log("amount", amount);
+        console.log("eoa balance", _eoa.balance);
         vm.deal(recipient, 0);
 
         vm.prank(_newOwner);
@@ -206,8 +221,13 @@ contract CoinbaseImplementationTest is Test {
             amount,
             "" // empty calldata for simple transfer
         );
+        console.log("eoa balance", _eoa.balance);
 
-        assertEq(recipient.balance, amount, "Coinbase wallet execute should transfer ETH");
+        assertEq(
+            recipient.balance,
+            amount,
+            "Coinbase wallet execute should transfer ETH"
+        );
     }
 
     function test_upgradeToAndCall_reverts_whenCalledByNonOwner(address nonOwner) public {
